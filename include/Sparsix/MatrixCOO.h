@@ -6,18 +6,13 @@
 
 template <typename T>
 class MatrixCOO {
+public:
     struct Entry {
         std::size_t row;
         std::size_t col;
         T value;
     };
 
-    std::vector<std::size_t> rows;
-    std::vector<std::size_t> cols;
-    std::vector<T> values;
-    std::size_t rowsNum, colsNum;
-    
-public:
     MatrixCOO() : rows(), cols(), values(), rowsNum(0), colsNum(0) {}
 
     MatrixCOO(std::size_t rowsNum, std::size_t colsNum, const std::vector<Entry> &entries) {
@@ -52,4 +47,10 @@ public:
             entrySet.insert({entry.row, entry.col});
         }
     }
+
+private:
+    std::vector<std::size_t> rows;
+    std::vector<std::size_t> cols;
+    std::vector<T> values;
+    std::size_t rowsNum, colsNum;
 };
