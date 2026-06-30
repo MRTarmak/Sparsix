@@ -1,4 +1,5 @@
 #include <cstddef>
+#include <cmath>
 #include <initializer_list>
 #include <set>
 #include <stdexcept>
@@ -9,26 +10,65 @@ template <typename T>
 class MatrixCOO {
 public:
     struct Entry {
-        std::size_t row;
-        std::size_t col;
+        size_t row;
+        size_t col;
         T value;
     };
 
     MatrixCOO() : rows(), cols(), values(), rowsNum(0), colsNum(0) {}
 
-    MatrixCOO(std::size_t rowsNum, std::size_t colsNum, const std::vector<Entry> &entries)
+    MatrixCOO(size_t rowsNum, size_t colsNum, const std::vector<Entry> &entries)
         : rows(), cols(), values(), rowsNum(0), colsNum(0) {
         initialize(rowsNum, colsNum, entries.begin(), entries.end());
     }
 
-    MatrixCOO(std::size_t rowsNum, std::size_t colsNum, std::initializer_list<Entry> entries)
+    MatrixCOO(size_t rowsNum, size_t colsNum, std::initializer_list<Entry> entries)
         : rows(), cols(), values(), rowsNum(0), colsNum(0) {
         initialize(rowsNum, colsNum, entries.begin(), entries.end());
+    }
+
+    MatrixCOO(const std::vector<std::vector<T>> &matrix, T threshold = T{}) {
+        rowsNum = matrix.size();
+        colsNum = rowsNum > 0 ? matrix.front().size() : 0;
+
+        for (size_t i = 0; i < rowsNum; i++) {
+            const size_t currentRowSize = matrix[i].size();
+            if (currentRowSize != colsNum) {
+                throw std::invalid_argument("Dense matrix must be rectangular.");
+            }
+
+            for (size_t j = 0; j < currentRowSize; j++) {
+                if (std::abs(matrix[i][j]) > std::abs(threshold)) {
+                    rows.push_back(i);
+                    cols.push_back(j);
+                    values.push_back(matrix[i][j]);
+                }
+            }
+        }
+    }
+
+    static MatrixCOO<T> createIdentity(size_t size, T value = T{1}) {
+        std::vector<Entry> entries;
+        for (size_t i = 0; i < size; i++) {
+            entries.push_back({i, i, value});
+        }
+        return MatrixCOO<T>(size, size, entries);
+    }
+
+    static MatrixCOO<T> createDiagonal(size_t size, const std::vector<T> &values) {
+        if (values.size() != size) {
+            throw std::invalid_argument("Values size must match the specified size.");
+        }
+        std::vector<Entry> entries;
+        for (size_t i = 0; i < size; i++) {
+            entries.push_back({i, i, values[i]});
+        }
+        return MatrixCOO<T>(size, size, entries);
     }
 
 private:
     template <typename InputIt>
-    void initialize(std::size_t rowsCount, std::size_t colsCount, InputIt first, InputIt last) {
+    void initialize(size_t rowsCount, size_t colsCount, InputIt first, InputIt last) {
         if (rowsCount == 0 || colsCount == 0) {
             throw std::invalid_argument("Matrix dimensions must be greater than zero.");
         }
@@ -36,16 +76,16 @@ private:
         rowsNum = rowsCount;
         colsNum = colsCount;
 
-        std::set<std::pair<std::size_t, std::size_t>> entrySet;
+        std::set<std::pair<size_t, size_t>> entrySet;
 
-        for (auto it = first; it != last; ++it) {
+        for (auto it = first; it != last; it++) {
             const auto &entry = *it;
 
             if (entry.row >= rowsNum || entry.col >= colsNum) {
                 throw std::out_of_range("Entry position is out of matrix bounds.");
             }
 
-            const std::pair<std::size_t, std::size_t> position{entry.row, entry.col};
+            const std::pair<size_t, size_t> position{entry.row, entry.col};
             if (entrySet.find(position) != entrySet.end()) {
                 throw std::invalid_argument("Duplicate entry found.");
             }
@@ -61,8 +101,8 @@ private:
         }
     }
 
-    std::vector<std::size_t> rows;
-    std::vector<std::size_t> cols;
+    std::vector<size_t> rows;
+    std::vector<size_t> cols;
     std::vector<T> values;
-    std::size_t rowsNum, colsNum;
+    size_t rowsNum, colsNum;
 };
