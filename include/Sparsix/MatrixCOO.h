@@ -15,25 +15,23 @@ public:
         T value;
     };
 
-    MatrixCOO() : rows(), cols(), values(), rowsNum(0), colsNum(0) {}
+    MatrixCOO() : rows(), cols(), values(), rows_count_(0), cols_count_(0) {}
 
-    MatrixCOO(size_t rowsNum, size_t colsNum, const std::vector<Entry> &entries)
-        : rows(), cols(), values(), rowsNum(0), colsNum(0) {
-        initialize(rowsNum, colsNum, entries.begin(), entries.end());
+    MatrixCOO(size_t rows_count, size_t cols_count, const std::vector<Entry> &entries) {
+        initialize(rows_count, cols_count, entries.begin(), entries.end());
     }
 
-    MatrixCOO(size_t rowsNum, size_t colsNum, std::initializer_list<Entry> entries)
-        : rows(), cols(), values(), rowsNum(0), colsNum(0) {
-        initialize(rowsNum, colsNum, entries.begin(), entries.end());
+    MatrixCOO(size_t rows_count, size_t cols_count, std::initializer_list<Entry> entries) {
+        initialize(rows_count, cols_count, entries.begin(), entries.end());
     }
 
     MatrixCOO(const std::vector<std::vector<T>> &matrix, T threshold = T{}) {
-        rowsNum = matrix.size();
-        colsNum = rowsNum > 0 ? matrix.front().size() : 0;
+        rows_count_ = matrix.size();
+        cols_count_ = rows_count_ > 0 ? matrix.front().size() : 0;
 
-        for (size_t i = 0; i < rowsNum; i++) {
+        for (size_t i = 0; i < rows_count_; i++) {
             const size_t currentRowSize = matrix[i].size();
-            if (currentRowSize != colsNum) {
+            if (currentRowSize != cols_count_) {
                 throw std::invalid_argument("Dense matrix must be rectangular.");
             }
 
@@ -66,30 +64,46 @@ public:
         return MatrixCOO<T>(size, size, entries);
     }
 
+    // TODO createRandom()
+
+    // TODO overload operator()
+
+    size_t rows_count() const {
+        return rows_count_;
+    }
+
+    size_t cols_count() const {
+        return cols_count_;
+    }
+
+    size_t non_zero_count() const {
+        return values.size();
+    }
+
 private:
     template <typename InputIt>
-    void initialize(size_t rowsCount, size_t colsCount, InputIt first, InputIt last) {
-        if (rowsCount == 0 || colsCount == 0) {
+    void initialize(size_t rows_count, size_t cols_count, InputIt first, InputIt last) {
+        if (rows_count == 0 || cols_count == 0) {
             throw std::invalid_argument("Matrix dimensions must be greater than zero.");
         }
 
-        rowsNum = rowsCount;
-        colsNum = colsCount;
+        rows_count_ = rows_count;
+        cols_count_ = cols_count;
 
-        std::set<std::pair<size_t, size_t>> entrySet;
+        std::set<std::pair<size_t, size_t>> entry_set;
 
         for (auto it = first; it != last; it++) {
             const auto &entry = *it;
 
-            if (entry.row >= rowsNum || entry.col >= colsNum) {
+            if (entry.row >= rows_count_ || entry.col >= cols_count_) {
                 throw std::out_of_range("Entry position is out of matrix bounds.");
             }
 
             const std::pair<size_t, size_t> position{entry.row, entry.col};
-            if (entrySet.find(position) != entrySet.end()) {
+            if (entry_set.find(position) != entry_set.end()) {
                 throw std::invalid_argument("Duplicate entry found.");
             }
-            entrySet.insert(position);
+            entry_set.insert(position);
 
             if (entry.value == T{}) {
                 continue;
@@ -104,5 +118,6 @@ private:
     std::vector<size_t> rows;
     std::vector<size_t> cols;
     std::vector<T> values;
-    size_t rowsNum, colsNum;
+    size_t rows_count_;
+    size_t cols_count_;
 };
