@@ -1,17 +1,13 @@
 #include <Sparsix.h>
+#include <complex>
 #include <iostream>
 
-using Entry = MatrixCOO<int>::Entry;
+using Value = std::complex<double>;
+using Entry = MatrixCOO<Value>::Entry;
 
 int main() {
-    // std::vector<Entry> emptyEntries;
-    // MatrixCOO<int> matrix{1, 1, emptyEntries};
-
-    // std::vector<Entry> duplicateEntries{{0, 0, 1}, {0, 0, 2}};
-    // MatrixCOO<int> matrix{1, 2, duplicateEntries};
-
-    std::vector<Entry> entries{{0, 0, 1}, {1, 2, 4}, {1, 1, 3}};
-    MatrixCOO<int> matrix{2, 3, entries};
+    std::vector<Entry> entries{{0, 0, {1.0, 2.0}}, {1, 2, {4.0, -1.0}}, {1, 1, {3.0, 0.5}}};
+    MatrixCOO<Value> matrix{2, 3, entries};
 
     std::cout << "Matrix created successfully!" << std::endl;
 
