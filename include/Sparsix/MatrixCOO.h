@@ -46,6 +46,9 @@ public:
 
     MatrixCOO() : rows_(), cols_(), values_(), rows_count_(0), cols_count_(0) {}
 
+    MatrixCOO(size_t rows_count, size_t cols_count)
+        : rows_(), cols_(), values_(), rows_count_(rows_count), cols_count_(cols_count) {}
+
     MatrixCOO(size_t rows_count, size_t cols_count, const std::vector<Entry> &entries) {
         initialize(rows_count, cols_count, entries.begin(), entries.end());
     }
@@ -225,9 +228,37 @@ public:
         return at(row, col);
     }
 
+    void reshape(size_t rows_count, size_t cols_count, bool force = false) {
+        if (rows_count == 0 || cols_count == 0) {
+            throw std::invalid_argument("Matrix dimensions must be greater than zero.");
+        }
+        if (rows_count < rows_count_ || cols_count < cols_count_) {
+            if (!force) {
+                throw std::invalid_argument(
+                    "Reshape may remove stored elements. Pass force=true to allow truncation.");
+            } else {
+                std::vector<Entry> entries;
+                for (size_t i = 0; i < values_.size(); i++) {
+                    if (rows_[i] < rows_count && cols_[i] < cols_count) {
+                        entries.emplace_back(rows_[i], cols_[i], values_[i]);
+                    }
+                }
+                rows_.clear();
+                cols_.clear();
+                values_.clear();
+                initialize<std::vector<Entry>>(
+                    rows_count, cols_count, entries.begin(), entries.end());
+            }
+        } else {
+            rows_count_ = rows_count;
+            cols_count_ = cols_count;
+        }
+    }
+
     void insert(size_t row, size_t col, const T &value) {
         if (row >= rows_count_ || col >= cols_count_) {
-            throw std::out_of_range("Matrix indices are out of bounds.");
+            throw std::out_of_range("Matrix indices are out of bounds. " +
+                "If you want to expand the matrix, call reshape method");
         }
         if (value == T{}) {
             throw std::invalid_argument("Cannot insert default (zero) value into COO matrix.");
