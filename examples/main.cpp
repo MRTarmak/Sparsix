@@ -6,10 +6,10 @@ using Value = std::complex<double>;
 using Entry = MatrixCOO<Value>::Entry;
 
 int main() {
-    std::vector<Entry> entries{{0, 0, {1.0, 2.0}}, {1, 2, {4.0, -1.0}}, {1, 1, {3.0, 0.5}}};
-    MatrixCOO<Value> matrix{2, 3, entries};
+    MatrixCOO<Value> complex_matrix = MatrixCOO<Value>::create_random(10, 20, 0.5, {5, 6.8}, {6, 8});
+    MatrixCOO<int> int_matrix = MatrixCOO<int>::create_random(20, 10, 0.2, 50, 300);
 
-    std::cout << "Matrix created successfully!" << std::endl;
+    std::cout << "Matrices created successfully!" << std::endl;
 
     return 0;
 }
