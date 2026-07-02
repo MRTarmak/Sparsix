@@ -1,12 +1,17 @@
 #include <cstddef>
 #include <cmath>
+#include <concepts>
 #include <initializer_list>
 #include <set>
 #include <stdexcept>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
 template <typename T>
+concept MatrixScalar = std::is_arithmetic_v<T>;
+
+template <MatrixScalar T>
 class MatrixCOO {
 public:
     struct Entry {
