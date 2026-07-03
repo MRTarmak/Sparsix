@@ -1,8 +1,6 @@
 #include <algorithm>
 #include <cstddef>
 #include <cmath>
-#include <complex>
-#include <concepts>
 #include <initializer_list>
 #include <limits>
 #include <numeric>
@@ -12,22 +10,8 @@
 #include <utility>
 #include <vector>
 
+#include <Sparsix/Concepts/MatrixScalar.h>
 #include <Sparsix/Utils/Randomizer.h>
-
-template <typename T>
-struct is_std_complex : std::false_type {};
-
-template <typename T>
-struct is_std_complex<std::complex<T>> : std::true_type {};
-
-template <typename T>
-inline constexpr bool is_std_complex_v = is_std_complex<T>::value;
-
-template <typename T>
-inline constexpr bool is_matrix_scalar_v = std::is_arithmetic_v<T> || is_std_complex_v<T>;
-
-template <typename T>
-concept MatrixScalar = is_matrix_scalar_v<T>;
 
 #if defined(__cpp_concepts) && __cpp_concepts >= 201907L
 template <MatrixScalar T>
@@ -196,7 +180,9 @@ public:
         }
     }
 
-    T get(size_t row, size_t col) const {
+    // at, insert, set и erase можно переписать через бинпоиск, но нужно сортировать массивы
+
+    T at(size_t row, size_t col) const {
         if (row >= rows_count_ || col >= cols_count_) {
             throw std::out_of_range("Matrix indices are out of bounds.");
         }
@@ -209,22 +195,6 @@ public:
     }
 
     T operator()(size_t row, size_t col) const {
-        return get(row, col);
-    }
-
-    T &at(size_t row, size_t col) {
-        if (row >= rows_count_ || col >= cols_count_) {
-            throw std::out_of_range("Matrix indices are out of bounds.");
-        }
-        for (size_t i = 0; i < values_.size(); i++) {
-            if (rows_[i] == row && cols_[i] == col) {
-                return values_[i];
-            }
-        }
-        throw std::out_of_range("Element at specified position is not stored in COO format.");
-    }
-
-    T &operator()(size_t row, size_t col) {
         return at(row, col);
     }
 
@@ -235,7 +205,7 @@ public:
         if (rows_count < rows_count_ || cols_count < cols_count_) {
             if (!force) {
                 throw std::invalid_argument(
-                    "Reshape may remove stored elements. Pass force=true to allow truncation.");
+                    "Reshape may erase stored elements. Pass force=true to allow truncation.");
             } else {
                 std::vector<Entry> entries;
                 for (size_t i = 0; i < values_.size(); i++) {
@@ -257,16 +227,16 @@ public:
 
     void insert(size_t row, size_t col, const T &value) {
         if (row >= rows_count_ || col >= cols_count_) {
-            throw std::out_of_range("Matrix indices are out of bounds. " +
-                "If you want to expand the matrix, call reshape method");
+            throw std::out_of_range("Matrix indices are out of bounds. \
+                If you want to expand the matrix, call reshape method");
         }
         if (value == T{}) {
             throw std::invalid_argument("Cannot insert default (zero) value into COO matrix.");
         }
         for (size_t i = 0; i < values_.size(); i++) {
             if (rows_[i] == row && cols_[i] == col) {
-                values_[i] = value;
-                return;
+                throw std::invalid_argument("Element already exists in COO matrix. \
+                                                            Use set() to modify it.");
             }
         }
 
@@ -275,7 +245,28 @@ public:
         values_.push_back(value);
     }
 
-    void remove(size_t row, size_t col) {
+    void set(size_t row, size_t col, const T& value) {
+        if (row >= rows_count_ || col >= cols_count_) {
+            throw std::out_of_range("Matrix indices are out of bounds.");
+        }
+
+        if (value == T{}) {
+            throw std::invalid_argument("Cannot store default (zero) value in COO matrix. \
+                                                                Use erase() to remove it.");
+        }
+
+        for (size_t i = 0; i < values_.size(); ++i) {
+            if (rows_[i] == row && cols_[i] == col) {
+                values_[i] = value;
+                return;
+            }
+        }
+
+        throw std::out_of_range("Element does not exist in COO matrix. \
+                                                Use insert() to add it.");
+    }
+
+    void erase(size_t row, size_t col) {
         if (row >= rows_count_ || col >= cols_count_) {
             throw std::out_of_range("Matrix indices are out of bounds.");
         }
