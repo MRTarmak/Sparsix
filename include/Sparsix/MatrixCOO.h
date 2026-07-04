@@ -4,6 +4,7 @@
 #include <initializer_list>
 #include <limits>
 #include <numeric>
+#include <optional>
 #include <set>
 #include <stdexcept>
 #include <type_traits>
@@ -11,6 +12,7 @@
 #include <vector>
 
 #include <Sparsix/Concepts/MatrixScalar.h>
+#include <Sparsix/Core/Triplet.h>
 #include <Sparsix/Utils/Randomizer.h>
 
 #if defined(__cpp_concepts) && __cpp_concepts >= 201907L
@@ -22,26 +24,20 @@ class MatrixCOO {
 public:
     static_assert(is_matrix_scalar_v<T>, "MatrixCOO requires an arithmetic or std::complex value type.");
 
-    struct Entry {
-        size_t row;
-        size_t col;
-        T value;
-    };
+    explicit MatrixCOO() : rows_(), cols_(), values_(), rows_count_(0), cols_count_(0) {}
 
-    MatrixCOO() : rows_(), cols_(), values_(), rows_count_(0), cols_count_(0) {}
-
-    MatrixCOO(size_t rows_count, size_t cols_count)
+    explicit MatrixCOO(size_t rows_count, size_t cols_count)
         : rows_(), cols_(), values_(), rows_count_(rows_count), cols_count_(cols_count) {}
 
-    MatrixCOO(size_t rows_count, size_t cols_count, const std::vector<Entry> &entries) {
+    explicit MatrixCOO(size_t rows_count, size_t cols_count, const std::vector<Triplet<T>> &entries) {
         initialize(rows_count, cols_count, entries.begin(), entries.end());
     }
 
-    MatrixCOO(size_t rows_count, size_t cols_count, std::initializer_list<Entry> entries) {
+    explicit MatrixCOO(size_t rows_count, size_t cols_count, std::initializer_list<Triplet<T>> entries) {
         initialize(rows_count, cols_count, entries.begin(), entries.end());
     }
 
-    MatrixCOO(const std::vector<std::vector<T>> &matrix, T threshold = T{}) {
+    explicit MatrixCOO(const std::vector<std::vector<T>> &matrix, T threshold = T{}) {
         rows_count_ = matrix.size();
         cols_count_ = rows_count_ > 0 ? matrix.front().size() : 0;
 
@@ -62,7 +58,8 @@ public:
     }
 
     static MatrixCOO<T> create_identity(size_t size, T value = T{1}) {
-        std::vector<Entry> entries;
+        std::vector<Triplet<T>> entries;
+        entries.reserve(size);
         for (size_t i = 0; i < size; i++) {
             entries.push_back({i, i, value});
         }
@@ -73,7 +70,9 @@ public:
         if (values.size() != size) {
             throw std::invalid_argument("Values size must match the specified size.");
         }
-        std::vector<Entry> entries;
+
+        std::vector<Triplet<T>> entries;
+        entries.reserve(size);
         for (size_t i = 0; i < size; i++) {
             entries.push_back({i, i, values[i]});
         }
@@ -96,7 +95,7 @@ public:
         const long double requested_non_zero_count = static_cast<long double>(total_count) * density;
         size_t non_zero_count = static_cast<size_t>(std::llround(requested_non_zero_count));
 
-        std::vector<Entry> entries;
+        std::vector<Triplet<T>> entries;
         entries.reserve(non_zero_count);
 
         if (non_zero_count == 0) {
@@ -180,16 +179,10 @@ public:
         }
     }
 
-    // at, insert, set и erase можно переписать через бинпоиск, но нужно сортировать массивы
-
     T at(size_t row, size_t col) const {
-        if (row >= rows_count_ || col >= cols_count_) {
-            throw std::out_of_range("Matrix indices are out of bounds.");
-        }
-        for (size_t i = 0; i < values_.size(); i++) {
-            if (rows_[i] == row && cols_[i] == col) {
-                return values_[i];
-            }
+        auto index = find_index(row, col);
+        if (index) {
+            return values_[*index];
         }
         return T{};
     }
@@ -202,12 +195,14 @@ public:
         if (rows_count == 0 || cols_count == 0) {
             throw std::invalid_argument("Matrix dimensions must be greater than zero.");
         }
+
         if (rows_count < rows_count_ || cols_count < cols_count_) {
             if (!force) {
                 throw std::invalid_argument(
                     "Reshape may erase stored elements. Pass force=true to allow truncation.");
             } else {
-                std::vector<Entry> entries;
+                std::vector<Triplet<T>> entries;
+                entries.reserve(values_.size());
                 for (size_t i = 0; i < values_.size(); i++) {
                     if (rows_[i] < rows_count && cols_[i] < cols_count) {
                         entries.emplace_back(rows_[i], cols_[i], values_[i]);
@@ -216,8 +211,7 @@ public:
                 rows_.clear();
                 cols_.clear();
                 values_.clear();
-                initialize<std::vector<Entry>>(
-                    rows_count, cols_count, entries.begin(), entries.end());
+                initialize(rows_count, cols_count, entries.begin(), entries.end());
             }
         } else {
             rows_count_ = rows_count;
@@ -226,18 +220,14 @@ public:
     }
 
     void insert(size_t row, size_t col, const T &value) {
-        if (row >= rows_count_ || col >= cols_count_) {
-            throw std::out_of_range("Matrix indices are out of bounds. \
-                If you want to expand the matrix, call reshape method");
-        }
         if (value == T{}) {
             throw std::invalid_argument("Cannot insert default (zero) value into COO matrix.");
         }
-        for (size_t i = 0; i < values_.size(); i++) {
-            if (rows_[i] == row && cols_[i] == col) {
-                throw std::invalid_argument("Element already exists in COO matrix. \
+
+        auto index = find_index(row, col);
+        if (index) {
+            throw std::invalid_argument("Element already exists in COO matrix. \
                                                             Use set() to modify it.");
-            }
         }
 
         rows_.push_back(row);
@@ -246,38 +236,51 @@ public:
     }
 
     void set(size_t row, size_t col, const T& value) {
-        if (row >= rows_count_ || col >= cols_count_) {
-            throw std::out_of_range("Matrix indices are out of bounds.");
-        }
-
         if (value == T{}) {
             throw std::invalid_argument("Cannot store default (zero) value in COO matrix. \
                                                                 Use erase() to remove it.");
         }
-
-        for (size_t i = 0; i < values_.size(); ++i) {
-            if (rows_[i] == row && cols_[i] == col) {
-                values_[i] = value;
-                return;
-            }
+        
+        auto index = find_index(row, col);
+        if (index) {
+            values_[*index] = value;
+            return;
         }
 
         throw std::out_of_range("Element does not exist in COO matrix. \
                                                 Use insert() to add it.");
     }
 
+    bool contains(size_t row, size_t col) {
+        if (find_index(row, col))
+            return true;
+        return false;
+    }
+
     void erase(size_t row, size_t col) {
         if (row >= rows_count_ || col >= cols_count_) {
             throw std::out_of_range("Matrix indices are out of bounds.");
         }
-        for (size_t i = 0; i < values_.size(); i++) {
-            if (rows_[i] == row && cols_[i] == col) {
-                rows_.erase(rows_.begin() + i);
-                cols_.erase(cols_.begin() + i);
-                values_.erase(values_.begin() + i);
-                return;
-            }
+
+        auto index = find_index(row, col);
+        if (index) {
+            rows_.erase(rows_.begin() + *index);
+            cols_.erase(cols_.begin() + *index);
+            values_.erase(values_.begin() + *index);
+            return;
         }
+    }
+
+    void reserve(size_t nnz) {
+        rows_.reserve(nnz);
+        cols_.reserve(nnz);
+        values_.reserve(nnz);
+    }
+
+    void clear() {
+        rows_.clear();
+        cols_.clear();
+        values_.clear();
     }
 
     size_t rows_count() const {
@@ -302,6 +305,12 @@ private:
         rows_count_ = rows_count;
         cols_count_ = cols_count;
 
+        const auto count = std::distance(first, last);
+
+        rows_.reserve(count);
+        cols_.reserve(count);
+        values_.reserve(count);
+
         std::set<std::pair<size_t, size_t>> entry_set;
 
         for (auto it = first; it != last; it++) {
@@ -312,10 +321,11 @@ private:
             }
 
             const std::pair<size_t, size_t> position{entry.row, entry.col};
-            if (entry_set.find(position) != entry_set.end()) {
+
+            auto [entry_it, inserted] = entry_set.insert(position);
+            if (!inserted) {
                 throw std::invalid_argument("Duplicate entry found.");
             }
-            entry_set.insert(position);
 
             if (entry.value == T{}) {
                 continue;
@@ -325,6 +335,19 @@ private:
             cols_.push_back(entry.col);
             values_.push_back(entry.value);
         }
+    }
+
+    std::optional<size_t> find_index(size_t row, size_t col) const {
+        if (row >= rows_count_ || col >= cols_count_) {
+            throw std::out_of_range("Matrix indices are out of bounds.");
+        }
+        for (size_t i = 0; i < values_.size(); i++) {
+            if (rows_[i] == row && cols_[i] == col) {
+                return i;
+            }
+        }
+
+        return std::nullopt;
     }
 
     std::vector<size_t> rows_;
