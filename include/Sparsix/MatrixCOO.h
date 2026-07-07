@@ -223,7 +223,8 @@ public:
     };
 
     T at(size_t row, size_t col) const {
-        auto index = find_index(row, col);
+        check_bounds(row, col);
+        auto index = find_index_unchecked(row, col);
         if (index) {
             return values_[*index];
         }
@@ -263,11 +264,13 @@ public:
     }
 
     void insert(size_t row, size_t col, const T &value) {
+        check_bounds(row, col);
+
         if (value == T{}) {
             throw std::invalid_argument("Cannot insert default (zero) value into COO matrix.");
         }
 
-        auto index = find_index(row, col);
+        auto index = find_index_unchecked(row, col);
         if (index) {
             throw std::invalid_argument("Element already exists in COO matrix. \
                                                             Use set() to modify it.");
@@ -281,12 +284,14 @@ public:
     }
 
     void set(size_t row, size_t col, const T& value) {
+        check_bounds(row, col);
+
         if (value == T{}) {
             throw std::invalid_argument("Cannot store default (zero) value in COO matrix. \
                                                                 Use erase() to remove it.");
         }
         
-        auto index = find_index(row, col);
+        auto index = find_index_unchecked(row, col);
         if (index) {
             values_[*index] = value;
             return;
@@ -296,18 +301,16 @@ public:
                                                 Use insert() to add it.");
     }
 
-    bool contains(size_t row, size_t col) {
-        if (find_index(row, col))
+    bool contains(size_t row, size_t col) const {
+        check_bounds(row, col);
+        if (find_index_unchecked(row, col))
             return true;
         return false;
     }
 
     void erase(size_t row, size_t col) {
-        if (row >= rows_count_ || col >= cols_count_) {
-            throw std::out_of_range("Matrix indices are out of bounds.");
-        }
-
-        auto index = find_index(row, col);
+        check_bounds(row, col);
+        auto index = find_index_unchecked(row, col);
         if (index) {
             rows_.erase(rows_.begin() + *index);
             cols_.erase(cols_.begin() + *index);
@@ -390,11 +393,13 @@ private:
         sorted_ = false;
     }
 
-    std::optional<size_t> find_index(size_t row, size_t col) const {
+    inline void check_bounds(size_t row, size_t col) const {
         if (row >= rows_count_ || col >= cols_count_) {
             throw std::out_of_range("Matrix indices are out of bounds.");
         }
+    }
 
+    std::optional<size_t> find_index_unchecked(size_t row, size_t col) const {
         if (!sorted_) {
             for (size_t i = 0; i < values_.size(); i++) {
                 if (rows_[i] == row && cols_[i] == col) {
