@@ -394,9 +394,35 @@ private:
         if (row >= rows_count_ || col >= cols_count_) {
             throw std::out_of_range("Matrix indices are out of bounds.");
         }
-        for (size_t i = 0; i < values_.size(); i++) {
-            if (rows_[i] == row && cols_[i] == col) {
-                return i;
+
+        if (!sorted_) {
+            for (size_t i = 0; i < values_.size(); i++) {
+                if (rows_[i] == row && cols_[i] == col) {
+                    return i;
+                }
+            }
+        } else {
+            size_t l = 0;
+            size_t r = values_.size();
+            
+            while (l < r) {
+                size_t m = l + (r - l) / 2;
+
+                const auto current = std::pair{rows_[m], cols_[m]};
+                const auto target = std::pair{row, col};
+
+                if (target > current) {
+                    l = m + 1;
+                } else {
+                    r = m;
+                }
+            }
+
+            if (l < values_.size() &&
+                rows_[l] == row &&
+                cols_[l] == col) 
+            {
+                return l;
             }
         }
 
