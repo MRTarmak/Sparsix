@@ -24,10 +24,10 @@ class MatrixCOO {
 public:
     static_assert(is_matrix_scalar_v<T>, "MatrixCOO requires an arithmetic or std::complex value type.");
 
-    explicit MatrixCOO() : rows_(), cols_(), values_(), rows_count_(0), cols_count_(0) {}
+    explicit MatrixCOO() : rows_(), cols_(), values_(), rows_count_(0), cols_count_(0), sorted_(true) {}
 
     explicit MatrixCOO(size_t rows_count, size_t cols_count)
-        : rows_(), cols_(), values_(), rows_count_(rows_count), cols_count_(cols_count) {}
+        : rows_(), cols_(), values_(), rows_count_(rows_count), cols_count_(cols_count), sorted_(true) {}
 
     explicit MatrixCOO(size_t rows_count, size_t cols_count, const std::vector<Triplet<T>> &entries) {
         initialize(rows_count, cols_count, entries.begin(), entries.end());
@@ -55,6 +55,8 @@ public:
                 }
             }
         }
+
+        sorted_ = false;
     }
 
     static MatrixCOO<T> create_identity(size_t size, T value = T{1}) {
@@ -179,6 +181,47 @@ public:
         }
     }
 
+    void sort() {
+        if (sorted_) {
+            return;
+        }
+        if (values_.size() <= 1) {
+            sorted_ = true;
+            return;
+        }
+
+        std::vector<size_t> order(values_.size());
+        std::iota(order.begin(), order.end(), size_t{0});
+
+        std::sort(order.begin(), order.end(), 
+        [&](auto a, auto b) {
+            if (rows_[a] != rows_[b])
+                return rows_[a] < rows_[b];
+
+            return cols_[a] < cols_[b];
+        });
+
+        std::vector<size_t> new_rows;
+        std::vector<size_t> new_cols;
+        std::vector<T> new_values;
+
+        new_rows.reserve(rows_.size());
+        new_cols.reserve(cols_.size());
+        new_values.reserve(values_.size());
+
+        for (size_t i = 0; i < order.size(); i++) {
+            new_rows.push_back(rows_[order[i]]);
+            new_cols.push_back(cols_[order[i]]);
+            new_values.push_back(values_[order[i]]);
+        }
+
+        rows_ = std::move(new_rows);
+        cols_ = std::move(new_cols);
+        values_ = std::move(new_values);
+
+        sorted_ = true;
+    };
+
     T at(size_t row, size_t col) const {
         auto index = find_index(row, col);
         if (index) {
@@ -233,6 +276,8 @@ public:
         rows_.push_back(row);
         cols_.push_back(col);
         values_.push_back(value);
+
+        sorted_ = false;
     }
 
     void set(size_t row, size_t col, const T& value) {
@@ -281,6 +326,8 @@ public:
         rows_.clear();
         cols_.clear();
         values_.clear();
+
+        sorted_ = true;
     }
 
     size_t rows_count() const {
@@ -289,6 +336,10 @@ public:
 
     size_t cols_count() const {
         return cols_count_;
+    }
+
+    bool sorted() const {
+        return sorted_;
     }
 
     size_t non_zero_count() const {
@@ -335,6 +386,8 @@ private:
             cols_.push_back(entry.col);
             values_.push_back(entry.value);
         }
+
+        sorted_ = false;
     }
 
     std::optional<size_t> find_index(size_t row, size_t col) const {
@@ -353,6 +406,9 @@ private:
     std::vector<size_t> rows_;
     std::vector<size_t> cols_;
     std::vector<T> values_;
+
     size_t rows_count_;
     size_t cols_count_;
+
+    bool sorted_;
 };
