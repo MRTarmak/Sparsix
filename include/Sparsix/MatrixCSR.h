@@ -107,13 +107,37 @@ class MatrixCSR {
 
     void set(size_t row, size_t col, const T &value);
 
-    bool contains(size_t row, size_t col) const;
+    bool contains(size_t row, size_t col) const {
+        check_bounds(row, col);
+        if (find_index_unchecked(row, col))
+            return true;
+        return false;
+    }
 
-    void erase(size_t row, size_t col);
+    void erase(size_t row, size_t col) {
+        check_bounds(row, col);
 
-    void reserve(size_t nnz);
+        auto index = find_index_unchecked(row, col);
+        if (!index)
+            return;
 
-    void clear();
+        col_indices_.erase(col_indices_.begin() + *index);
+        values_.erase(values_.begin() + *index);
+
+        for (size_t i = row + 1; i <= rows_count_; i++)
+            row_ptr_[i]--;
+    }
+
+    void reserve(size_t nnz) {
+        col_indices_.reserve(nnz);
+        values_.reserve(nnz);
+    }
+
+    void clear() {
+        col_indices_.clear();
+        values_.clear();
+        row_ptr_.assign(rows_count_ + 1, 0);
+    }
 
     size_t rows_count() const {
         return rows_count_;
