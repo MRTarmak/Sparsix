@@ -6,8 +6,8 @@
 namespace detail {
     template <typename T>
     void prepare_triplets(size_t rows_count,
-                              size_t cols_count,
-                              std::vector<Triplet<T>> &triplets)
+                          size_t cols_count,
+                          std::vector<Triplet<T>> &triplets)
     {
         if (rows_count == 0 || cols_count == 0) {
             throw std::invalid_argument("Matrix dimensions must be greater than zero.");

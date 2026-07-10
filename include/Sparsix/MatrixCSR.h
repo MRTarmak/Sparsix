@@ -3,6 +3,7 @@
 #include <Sparsix/Concepts/MatrixScalar.h>
 #include <Sparsix/Core/Triplet.h>
 #include <Sparsix/Detail/PrepareTriplets.h>
+#include <Sparsix/Detail/TripletsFromDense.h>
 
 #if defined(__cpp_concepts) && __cpp_concepts >= 201907L
 template <MatrixScalar T>
@@ -29,7 +30,16 @@ class MatrixCSR {
         initialize(rows_count, cols_count, triplets.begin(), triplets.end());
     }
 
-    explicit MatrixCSR(const std::vector<std::vector<T>> &matrix, T threshold = T{});
+    explicit MatrixCSR(const std::vector<std::vector<T>> &matrix, T threshold = T{}) {
+        auto triplets = detail::triplets_from_dense(matrix, threshold);
+
+        rows_count = matrix.size();
+        cols_count = rows_count > 0 ? matrix.front().size() : 0;
+
+        initialize(rows_count, cols_count, triplets.begin(), triplets.end());
+    }
+
+    explicit MatrixCSR(MatrixCOO<T> &coo);
 
     T at(size_t row, size_t col) const;
 

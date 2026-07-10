@@ -14,6 +14,7 @@
 #include <Sparsix/Concepts/MatrixScalar.h>
 #include <Sparsix/Core/Triplet.h>
 #include <Sparsix/Detail/PrepareTriplets.h>
+#include <Sparsix/Detail/TripletsFromDense.h>
 #include <Sparsix/Utils/Randomizer.h>
 
 #if defined(__cpp_concepts) && __cpp_concepts >= 201907L
@@ -44,25 +45,12 @@ public:
     }
 
     explicit MatrixCOO(const std::vector<std::vector<T>> &matrix, T threshold = T{}) {
-        rows_count_ = matrix.size();
-        cols_count_ = rows_count_ > 0 ? matrix.front().size() : 0;
+        auto triplets = detail::triplets_from_dense(matrix, threshold);
 
-        for (size_t i = 0; i < rows_count_; i++) {
-            const size_t current_row_size = matrix[i].size();
-            if (current_row_size != cols_count_) {
-                throw std::invalid_argument("Dense matrix must be rectangular.");
-            }
+        rows_count = matrix.size();
+        cols_count = rows_count > 0 ? matrix.front().size() : 0;
 
-            for (size_t j = 0; j < current_row_size; j++) {
-                if (std::abs(matrix[i][j]) > std::abs(threshold)) {
-                    rows_.push_back(i);
-                    cols_.push_back(j);
-                    values_.push_back(matrix[i][j]);
-                }
-            }
-        }
-
-        sorted_ = true;
+        initialize(rows_count, cols_count, triplets.begin(), triplets.end());
     }
 
     static MatrixCOO<T> create_identity(size_t size, T value = T{1}) {
