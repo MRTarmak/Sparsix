@@ -2,6 +2,7 @@
 
 #include <Sparsix/Concepts/MatrixScalar.h>
 #include <Sparsix/Core/Triplet.h>
+#include <Sparsix/Detail/PrepareTriplets.h>
 
 #if defined(__cpp_concepts) && __cpp_concepts >= 201907L
 template <MatrixScalar T>
@@ -16,12 +17,16 @@ class MatrixCSR {
     explicit MatrixCSR(size_t rows_count, size_t cols_count) 
         : col_indices_(), row_ptr_(), values_(), rows_count_(rows_count), cols_count_(cols_count) {}
 
-    explicit MatrixCSR(size_t rows_count, size_t cols_count, const std::vector<Triplet<T>> &entries) {
-        initialize(rows_count, cols_count, entries.begin(), entries.end());
+    explicit MatrixCSR(size_t rows_count, size_t cols_count, const std::vector<Triplet<T>> &triplets) {
+        detail::prepare_triplets(rows_count, cols_count, triplets);
+
+        initialize(rows_count, cols_count, triplets.begin(), triplets.end());
     }
 
-    explicit MatrixCSR(size_t rows_count, size_t cols_count, std::initializer_list<Triplet<T>> entries) {
-        initialize(rows_count, cols_count, entries.begin(), entries.end());
+    explicit MatrixCSR(size_t rows_count, size_t cols_count, std::initializer_list<Triplet<T>> triplets) {
+        detail::prepare_triplets(rows_count, cols_count, triplets);
+
+        initialize(rows_count, cols_count, triplets.begin(), triplets.end());
     }
 
     explicit MatrixCSR(const std::vector<std::vector<T>> &matrix, T threshold = T{});
@@ -61,24 +66,10 @@ class MatrixCSR {
 private:
     template <typename InputIt>
     void initialize(size_t rows_count, size_t cols_count, InputIt first, InputIt last) {
-        if (rows_count == 0 || cols_count == 0) {
-            throw std::invalid_argument("Matrix dimensions must be greater than zero.");
-        }
-
         rows_count_ = rows_count;
         cols_count_ = cols_count;
 
         const auto count = std::distance(first, last);
-
-        if (count > 1) {
-            std::sort(first, last, 
-            [](const Triplet<T> &a, const Triplet<T> &b) {
-                if (a.row != b.row)
-                    return a.row < b.row;
-
-                return a.col < b.col;
-            });
-        }
 
         col_indices_.reserve(count);
         values_.reserve(count);
@@ -87,22 +78,6 @@ private:
 
         for (auto it = first; it != last; it++) {
             const auto &entry = *it;
-
-            if (entry.row >= rows_count_ || entry.col >= cols_count_) {
-                throw std::out_of_range("Entry position is out of matrix bounds.");
-            }
-
-            if (entry.value == T{}) {
-                continue;
-            }
-
-            if (it != first) {
-                auto prev = std::prev(it);
-
-                if (prev->row == entry.row &&
-                    prev->col == entry.col)
-                    throw std::invalid_argument("Duplicate entry found.");
-            }
 
             col_indices_.push_back(entry.col);
             values_.push_back(entry.value);

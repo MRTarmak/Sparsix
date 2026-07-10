@@ -13,6 +13,7 @@
 
 #include <Sparsix/Concepts/MatrixScalar.h>
 #include <Sparsix/Core/Triplet.h>
+#include <Sparsix/Detail/PrepareTriplets.h>
 #include <Sparsix/Utils/Randomizer.h>
 
 #if defined(__cpp_concepts) && __cpp_concepts >= 201907L
@@ -29,12 +30,17 @@ public:
     explicit MatrixCOO(size_t rows_count, size_t cols_count)
         : rows_(), cols_(), values_(), rows_count_(rows_count), cols_count_(cols_count), sorted_(true) {}
 
-    explicit MatrixCOO(size_t rows_count, size_t cols_count, const std::vector<Triplet<T>> &entries) {
-        initialize(rows_count, cols_count, entries.begin(), entries.end());
+    explicit MatrixCOO(size_t rows_count, size_t cols_count, std::vector<Triplet<T>> triplets) {
+        detail::prepare_triplets(rows_count, cols_count, triplets);
+
+        initialize(rows_count, cols_count, triplets.begin(), triplets.end());
     }
 
-    explicit MatrixCOO(size_t rows_count, size_t cols_count, std::initializer_list<Triplet<T>> entries) {
-        initialize(rows_count, cols_count, entries.begin(), entries.end());
+    explicit MatrixCOO(size_t rows_count, size_t cols_count, std::initializer_list<Triplet<T>> triplets) {
+        std::vector<Triplet<T>> tmp(triplets);
+        detail::prepare_triplets(rows_count, cols_count, tmp);
+
+        initialize(rows_count, cols_count, tmp.begin(), tmp.end());
     }
 
     explicit MatrixCOO(const std::vector<std::vector<T>> &matrix, T threshold = T{}) {
@@ -56,16 +62,16 @@ public:
             }
         }
 
-        sorted_ = false;
+        sorted_ = true;
     }
 
     static MatrixCOO<T> create_identity(size_t size, T value = T{1}) {
-        std::vector<Triplet<T>> entries;
-        entries.reserve(size);
+        std::vector<Triplet<T>> triplets;
+        triplets.reserve(size);
         for (size_t i = 0; i < size; i++) {
-            entries.push_back({i, i, value});
+            triplets.push_back({i, i, value});
         }
-        return MatrixCOO<T>(size, size, entries);
+        return MatrixCOO<T>(size, size, triplets);
     }
 
     static MatrixCOO<T> create_diagonal(size_t size, const std::vector<T> &values) {
@@ -73,12 +79,12 @@ public:
             throw std::invalid_argument("Values size must match the specified size.");
         }
 
-        std::vector<Triplet<T>> entries;
-        entries.reserve(size);
+        std::vector<Triplet<T>> triplets;
+        triplets.reserve(size);
         for (size_t i = 0; i < size; i++) {
-            entries.push_back({i, i, values[i]});
+            triplets.push_back({i, i, values[i]});
         }
-        return MatrixCOO<T>(size, size, entries);
+        return MatrixCOO<T>(size, size, triplets);
     }
 
     static MatrixCOO<T> create_random(size_t rows_count, size_t cols_count, 
@@ -97,11 +103,11 @@ public:
         const long double requested_non_zero_count = static_cast<long double>(total_count) * density;
         size_t non_zero_count = static_cast<size_t>(std::llround(requested_non_zero_count));
 
-        std::vector<Triplet<T>> entries;
-        entries.reserve(non_zero_count);
+        std::vector<Triplet<T>> triplets;
+        triplets.reserve(non_zero_count);
 
         if (non_zero_count == 0) {
-            return MatrixCOO<T>(rows_count, cols_count, entries);
+            return MatrixCOO<T>(rows_count, cols_count, triplets);
         }
 
         std::vector<size_t> positions(total_count);
@@ -129,10 +135,10 @@ public:
                     value = make_value();
                 }
 
-                entries.push_back({row, col, value});
+                triplets.push_back({row, col, value});
             }
 
-            return MatrixCOO<T>(rows_count, cols_count, entries);
+            return MatrixCOO<T>(rows_count, cols_count, triplets);
         };
 
         if constexpr (is_std_complex_v<T>) {
@@ -245,17 +251,19 @@ public:
                 throw std::invalid_argument(
                     "Reshape may erase stored elements. Pass force=true to allow truncation.");
             } else {
-                std::vector<Triplet<T>> entries;
-                entries.reserve(values_.size());
+                std::vector<Triplet<T>> triplets;
+                triplets.reserve(values_.size());
                 for (size_t i = 0; i < values_.size(); i++) {
                     if (rows_[i] < rows_count && cols_[i] < cols_count) {
-                        entries.emplace_back(rows_[i], cols_[i], values_[i]);
+                        triplets.emplace_back(rows_[i], cols_[i], values_[i]);
                     }
                 }
                 rows_.clear();
                 cols_.clear();
                 values_.clear();
-                initialize(rows_count, cols_count, entries.begin(), entries.end());
+
+                detail::prepare_triplets(rows_count, cols_count, triplets);
+                initialize(rows_count, cols_count, triplets.begin(), triplets.end());
             }
         } else {
             rows_count_ = rows_count;
@@ -352,10 +360,6 @@ public:
 private:
     template <typename InputIt>
     void initialize(size_t rows_count, size_t cols_count, InputIt first, InputIt last) {
-        if (rows_count == 0 || cols_count == 0) {
-            throw std::invalid_argument("Matrix dimensions must be greater than zero.");
-        }
-
         rows_count_ = rows_count;
         cols_count_ = cols_count;
 
@@ -365,32 +369,15 @@ private:
         cols_.reserve(count);
         values_.reserve(count);
 
-        std::set<std::pair<size_t, size_t>> entry_set;
-
         for (auto it = first; it != last; it++) {
             const auto &entry = *it;
-
-            if (entry.row >= rows_count_ || entry.col >= cols_count_) {
-                throw std::out_of_range("Entry position is out of matrix bounds.");
-            }
-
-            const std::pair<size_t, size_t> position{entry.row, entry.col};
-
-            auto [entry_it, inserted] = entry_set.insert(position);
-            if (!inserted) {
-                throw std::invalid_argument("Duplicate entry found.");
-            }
-
-            if (entry.value == T{}) {
-                continue;
-            }
 
             rows_.push_back(entry.row);
             cols_.push_back(entry.col);
             values_.push_back(entry.value);
         }
 
-        sorted_ = false;
+        sorted_ = true;
     }
 
     inline void check_bounds(size_t row, size_t col) const {

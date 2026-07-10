@@ -13,4 +13,6 @@ struct Triplet {
     size_t row;
     size_t col;
     T value;
+
+    auto operator<=>(const Triplet&) const = default;
 };
