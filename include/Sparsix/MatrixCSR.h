@@ -39,9 +39,16 @@ class MatrixCSR {
         initialize(rows_count, cols_count, triplets.begin(), triplets.end());
     }
 
-    explicit MatrixCSR(MatrixCOO<T> &coo);
+    explicit MatrixCSR(MatrixCOO<T> coo);
 
-    T at(size_t row, size_t col) const;
+    T at(size_t row, size_t col) const {
+        check_bounds(row, col);
+        auto index = find_index_unchecked(row, col);
+        if (index) {
+            return values_[*index];
+        }
+        return T{};
+    }
 
     T operator()(size_t row, size_t col) const {
         return at(row, col);
@@ -97,6 +104,35 @@ private:
 
         for (size_t i = 1; i <= rows_count_; i++)
             row_ptr_[i] += row_ptr_[i-1];
+    }
+
+    inline void check_bounds(size_t row, size_t col) const {
+        if (row >= rows_count_ || col >= cols_count_) {
+            throw std::out_of_range("Matrix indices are out of bounds.");
+        }
+    }
+
+    std::optional<size_t> find_index_unchecked(size_t row, size_t col) const {
+        size_t l = row_ptr_[row];
+        size_t r = row_ptr_[row + 1];
+        
+        while (l < r) {
+            size_t m = l + (r - l) / 2;
+
+            if (col > col_indices_[m]) {
+                l = m + 1;
+            } else {
+                r = m;
+            }
+        }
+
+        if (l < row_ptr_[row + 1] &&
+            col_indices_[l] == col) 
+        {
+            return l;
+        }
+
+        return std::nullopt;
     }
 
     std::vector<size_t> col_indices_;
