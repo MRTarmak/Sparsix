@@ -54,11 +54,58 @@ class MatrixCSR {
         return at(row, col);
     }
 
-    void reshape(size_t rows_count, size_t cols_count, bool force = false);
+    void reshape(size_t rows_count, size_t cols_count, bool force = false) {
+        if (rows_count == 0 || cols_count == 0) {
+            throw std::invalid_argument("Matrix dimensions must be greater than zero.");
+        }
+
+        if (rows_count < rows_count_ || cols_count < cols_count_) {
+            if (!force) {
+                throw std::invalid_argument(
+                    "Reshape may erase stored elements. Pass force=true to allow truncation.");
+            } else {
+                std::vector<size_t> new_col_indices;
+                std::vector<size_t> new_row_ptr;
+                std::vector<T> new_values;
+
+                new_col_indices.reserve(col_indices_.size());
+                new_values.reserve(values_.size());
+
+                new_row_ptr.assign(rows_count + 1, 0);
+                
+                for (size_t i = 0; i < rows_count; i++) {
+                    size_t begin = row_ptr_[i];
+                    size_t end = row_ptr_[i+1];
+
+                    for (size_t j = begin; j < end; j++) {
+                        if (col_indices_[j] < cols_count) {
+                            new_col_indices.push_back(col_indices_[j]);
+                            new_values.push_back(values_[j]);
+
+                            new_row_ptr[i + 1]++;
+                        }
+                    }
+                }
+
+                for (size_t i = 1; i <= rows_count; i++)
+                    new_row_ptr[i] += new_row_ptr[i-1];
+
+                col_indices_ = std::move(new_col_indices);
+                row_ptr_ = std::move(new_row_ptr);
+                values_ = std::move(new_values);
+
+                rows_count_ = rows_count;
+                cols_count_ = cols_count;
+            }
+        } else {
+            rows_count_ = rows_count;
+            cols_count_ = cols_count;
+        }
+    }
 
     void insert(size_t row, size_t col, const T &value);
 
-    void set(size_t row, size_t col, const T& value);
+    void set(size_t row, size_t col, const T &value);
 
     bool contains(size_t row, size_t col) const;
 

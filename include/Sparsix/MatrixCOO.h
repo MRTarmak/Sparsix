@@ -279,7 +279,7 @@ public:
         sorted_ = false;
     }
 
-    void set(size_t row, size_t col, const T& value) {
+    void set(size_t row, size_t col, const T &value) {
         check_bounds(row, col);
 
         if (value == T{}) {
