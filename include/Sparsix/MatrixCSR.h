@@ -103,9 +103,47 @@ class MatrixCSR {
         }
     }
 
-    void insert(size_t row, size_t col, const T &value);
+    void insert(size_t row, size_t col, const T &value) {
+        check_bounds(row, col);
 
-    void set(size_t row, size_t col, const T &value);
+        if (value == T{}) {
+            throw std::invalid_argument("Cannot insert default (zero) value into CSR matrix.");
+        }
+
+        size_t row_begin = col_indices_.begin() + row_ptr_[row];
+        size_t row_end = col_indices_.begin() + row_ptr_[row + 1];
+
+        auto position = std::lower_bound(row_begin, row_end, col);
+
+        if (*position == col) {
+            throw std::invalid_argument("Element already exists in CSR matrix. \
+                                                            Use set() to modify it.");
+        }
+
+        col_indices_.insert(position, col);
+        values_.insert(position, value);
+
+        for (size_t i = row + 1; i <= rows_count_; i++)
+            row_ptr_[i]++;
+    }
+
+    void set(size_t row, size_t col, const T &value) {
+        check_bounds(row, col);
+
+        if (value == T{}) {
+            throw std::invalid_argument("Cannot store default (zero) value in CSR matrix. \
+                                                                Use erase() to remove it.");
+        }
+
+        auto index = find_index_unchecked(row, col);
+        if (index) {
+            values_[*index] = value;
+            return;
+        }
+
+        throw std::out_of_range("Element does not exist in CSR matrix. \
+                                                Use insert() to add it.");
+    }
 
     bool contains(size_t row, size_t col) const {
         check_bounds(row, col);
