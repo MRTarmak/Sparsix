@@ -1,3 +1,5 @@
+#pragma once
+
 #include <vector>
 
 #include <Sparsix/Concepts/MatrixScalar.h>
@@ -203,6 +205,18 @@ class MatrixCSC {
 
     size_t cols_count() const {
         return cols_count_;
+    }
+
+    const std::vector<size_t> &row_indices() const {
+        return row_indices_;
+    }
+
+    const std::vector<size_t> &col_ptr() const {
+        return col_ptr_;
+    }
+
+    const std::vector<T> &values() const {
+        return values_;
     }
 
     size_t non_zero_count() const {
