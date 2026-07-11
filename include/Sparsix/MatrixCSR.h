@@ -110,18 +110,20 @@ class MatrixCSR {
             throw std::invalid_argument("Cannot insert default (zero) value into CSR matrix.");
         }
 
-        size_t row_begin = col_indices_.begin() + row_ptr_[row];
-        size_t row_end = col_indices_.begin() + row_ptr_[row + 1];
+        auto row_begin = col_indices_.begin() + row_ptr_[row];
+        auto row_end = col_indices_.begin() + row_ptr_[row + 1];
 
-        auto position = std::lower_bound(row_begin, row_end, col);
+        std::vector<size_t>::iterator position = std::lower_bound(row_begin, row_end, col);
 
-        if (*position == col) {
+        if (position != row_end && *position == col) {
             throw std::invalid_argument("Element already exists in CSR matrix. \
                                                             Use set() to modify it.");
         }
 
+        size_t index = std::distance(col_indices_.begin(), position);
+
         col_indices_.insert(position, col);
-        values_.insert(position, value);
+        values_.insert(values_.begin() + index, value);
 
         for (size_t i = row + 1; i <= rows_count_; i++)
             row_ptr_[i]++;
