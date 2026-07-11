@@ -15,6 +15,10 @@ template <typename T>
 class MatrixCSC {
     static_assert(is_matrix_scalar_v<T>, "MatrixCSC requires an arithmetic or std::complex value type.");
 
+public:
+
+    using value_type = T;
+
     explicit MatrixCSC() : row_indices_(), col_ptr_(), values_(), rows_count_(0), cols_count_(0) {}
 
     explicit MatrixCSC(size_t rows_count, size_t cols_count) 

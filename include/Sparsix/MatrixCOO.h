@@ -28,6 +28,8 @@ class MatrixCOO {
 public:
     static_assert(is_matrix_scalar_v<T>, "MatrixCOO requires an arithmetic or std::complex value type.");
 
+    using value_type = T;
+
     explicit MatrixCOO() : rows_(), cols_(), values_(), rows_count_(0), cols_count_(0), sorted_(true) {}
 
     explicit MatrixCOO(size_t rows_count, size_t cols_count)
@@ -49,8 +51,8 @@ public:
     explicit MatrixCOO(const std::vector<std::vector<T>> &matrix, T threshold = T{}) {
         auto triplets = detail::triplets_from_dense(matrix, threshold);
 
-        rows_count = matrix.size();
-        cols_count = rows_count > 0 ? matrix.front().size() : 0;
+        const size_t rows_count = matrix.size();
+        const size_t cols_count = rows_count > 0 ? matrix.front().size() : 0;
 
         initialize(rows_count, cols_count, triplets.begin(), triplets.end());
     }
