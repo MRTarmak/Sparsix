@@ -6,7 +6,7 @@
 
 namespace detail {
     template <typename T>
-    std::vector<Triplet<T>> triplets_from_dense(std::vector<std::vector<T>> &matrix, T threshold) {
+    std::vector<Triplet<T>> triplets_from_dense(const std::vector<std::vector<T>> &matrix, T threshold) {
         size_t rows_count = matrix.size();
         size_t cols_count = rows_count > 0 ? matrix.front().size() : 0;
 

@@ -11,7 +11,7 @@ template <MatrixScalar T>
 template <typename T>
 #endif
 class MatrixCSR {
-    static_assert(is_matrix_scalar_v<T>, "MatrixCOO requires an arithmetic or std::complex value type.");
+    static_assert(is_matrix_scalar_v<T>, "MatrixCSR requires an arithmetic or std::complex value type.");
 
     explicit MatrixCSR() : col_indices_(), row_ptr_(), values_(), rows_count_(0), cols_count_(0) {}
 
@@ -25,16 +25,17 @@ class MatrixCSR {
     }
 
     explicit MatrixCSR(size_t rows_count, size_t cols_count, std::initializer_list<Triplet<T>> triplets) {
-        detail::prepare_triplets(rows_count, cols_count, triplets);
+        std::vector<Triplet<T>> tmp(triplets);
+        detail::prepare_triplets(rows_count, cols_count, tmp);
 
-        initialize(rows_count, cols_count, triplets.begin(), triplets.end());
+        initialize(rows_count, cols_count, tmp.begin(), tmp.end());
     }
 
     explicit MatrixCSR(const std::vector<std::vector<T>> &matrix, T threshold = T{}) {
         auto triplets = detail::triplets_from_dense(matrix, threshold);
 
-        rows_count = matrix.size();
-        cols_count = rows_count > 0 ? matrix.front().size() : 0;
+        const size_t rows_count = matrix.size();
+        const size_t cols_count = rows_count ? matrix.front().size() : 0;
 
         initialize(rows_count, cols_count, triplets.begin(), triplets.end());
     }
@@ -52,7 +53,7 @@ class MatrixCSR {
 
         row_ptr_.assign(rows_count_ + 1, 0);
 
-        for (auto row : coo.rows_)
+        for (auto row : coo.rows())
             row_ptr_[row + 1]++;
 
         for (size_t i = 1; i <= rows_count_; i++)
