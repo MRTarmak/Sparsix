@@ -6,5 +6,5 @@ template <MatrixScalar T>
 template <typename T>
 #endif
 class MatrixCSC {
-
+    
 };

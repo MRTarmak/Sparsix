@@ -3,11 +3,14 @@
 #include <cstddef>
 #include <vector>
 
+#include <Sparsix/Core/MajorOrder.h>
+
 namespace detail {
     template <typename T>
     void prepare_triplets(size_t rows_count,
                           size_t cols_count,
-                          std::vector<Triplet<T>> &triplets)
+                          std::vector<Triplet<T>> &triplets,
+                          MajorOrder order = MajorOrder::RowOrder)
     {
         if (rows_count == 0 || cols_count == 0) {
             throw std::invalid_argument("Matrix dimensions must be greater than zero.");
@@ -26,7 +29,21 @@ namespace detail {
                         }), 
             triplets.end());
 
-        std::sort(triplets.begin(), triplets.end());
+        if (order == MajorOrder::RowOrder) {
+            std::sort(triplets.begin(), triplets.end(), 
+            [](const Triplet<T> &a, const Triplet<T> &b) {
+                if (a.row != b.row)
+                    return a.row < b.row;
+                return a.col < b.col;
+            });
+        } else {
+            std::sort(triplets.begin(), triplets.end(),
+            [](const Triplet<T> &a, const Triplet<T> &b) {
+                if (a.col != b.col)
+                    return a.col < b.col;
+                return a.row < b.row;
+            });
+        }
 
         auto dup = std::adjacent_find(triplets.begin(), triplets.end(),
             [](const auto &a, const auto &b) {

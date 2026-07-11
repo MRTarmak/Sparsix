@@ -175,8 +175,10 @@ public:
         }
     }
 
-    void sort() {
-        if (sorted_) {
+    /// ColumnOrder is intended for internal use when converting COO -> CSC.
+    /// After sorting in ColumnOrder, row-based search optimizations are disabled.
+    void sort(MajorOrder major_order = MajorOrder::RowOrder) {
+        if (sorted_ && major_order == MajorOrder::RowOrder) {
             return;
         }
         if (values_.size() <= 1) {
@@ -187,13 +189,19 @@ public:
         std::vector<size_t> order(values_.size());
         std::iota(order.begin(), order.end(), size_t{0});
 
-        std::sort(order.begin(), order.end(), 
-        [&](auto a, auto b) {
-            if (rows_[a] != rows_[b])
+        auto cmp = [&](auto a, auto b) {
+            if (major_order == MajorOrder::RowOrder) {
+                if (rows_[a] != rows_[b])
+                    return rows_[a] < rows_[b];
+                return cols_[a] < cols_[b];
+            } else {
+                if (cols_[a] != cols_[b])
+                    return cols_[a] < cols_[b];
                 return rows_[a] < rows_[b];
+            }
+        };
 
-            return cols_[a] < cols_[b];
-        });
+        std::sort(order.begin(), order.end(), cmp);
 
         std::vector<size_t> new_rows;
         std::vector<size_t> new_cols;
@@ -213,7 +221,7 @@ public:
         cols_ = std::move(new_cols);
         values_ = std::move(new_values);
 
-        sorted_ = true;
+        sorted_ = (major_order == MajorOrder::RowOrder);
     };
 
     T at(size_t row, size_t col) const {
