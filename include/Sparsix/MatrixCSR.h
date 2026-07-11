@@ -39,7 +39,25 @@ class MatrixCSR {
         initialize(rows_count, cols_count, triplets.begin(), triplets.end());
     }
 
-    explicit MatrixCSR(MatrixCOO<T> coo);
+    explicit MatrixCSR(MatrixCOO<T> coo) {
+        if (!coo.sorted()) {
+            coo.sort();
+        }
+
+        rows_count_ = coo.rows_count();
+        cols_count_ = coo.cols_count();
+
+        col_indices_ = coo.cols();
+        values_ = coo.values();
+
+        row_ptr_.assign(rows_count_ + 1, 0);
+
+        for (auto row : coo.rows_)
+            row_ptr_[row + 1]++;
+
+        for (size_t i = 1; i <= rows_count_; i++)
+            row_ptr_[i] += row_ptr_[i - 1];
+    }
 
     T at(size_t row, size_t col) const {
         check_bounds(row, col);
@@ -75,7 +93,7 @@ class MatrixCSR {
                 
                 for (size_t i = 0; i < rows_count; i++) {
                     size_t begin = row_ptr_[i];
-                    size_t end = row_ptr_[i+1];
+                    size_t end = row_ptr_[i + 1];
 
                     for (size_t j = begin; j < end; j++) {
                         if (col_indices_[j] < cols_count) {
@@ -88,7 +106,7 @@ class MatrixCSR {
                 }
 
                 for (size_t i = 1; i <= rows_count; i++)
-                    new_row_ptr[i] += new_row_ptr[i-1];
+                    new_row_ptr[i] += new_row_ptr[i - 1];
 
                 col_indices_ = std::move(new_col_indices);
                 row_ptr_ = std::move(new_row_ptr);
@@ -214,7 +232,7 @@ private:
         }
 
         for (size_t i = 1; i <= rows_count_; i++)
-            row_ptr_[i] += row_ptr_[i-1];
+            row_ptr_[i] += row_ptr_[i - 1];
     }
 
     inline void check_bounds(size_t row, size_t col) const {

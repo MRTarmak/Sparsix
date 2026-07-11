@@ -329,6 +329,18 @@ public:
         sorted_ = true;
     }
 
+    const std::vector<size_t> &rows() const {
+        return rows_;
+    }
+
+    const std::vector<size_t> &cols() const {
+        return cols_;
+    }
+
+    const std::vector<T> &values() const {
+        return values_;
+    }
+
     size_t rows_count() const {
         return rows_count_;
     }
