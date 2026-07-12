@@ -4,4 +4,5 @@
 #include <Sparsix/MatrixCSR.h>
 #include <Sparsix/MatrixCSC.h>
 #include <Sparsix/Algorithms/Arithmetic.h>
+#include <Sparsix/Algorithms/Multiplication.h>
 #include <Sparsix/Detail/Conversions.h>

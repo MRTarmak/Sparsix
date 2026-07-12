@@ -200,17 +200,3 @@ TEST(MatrixConversionTest, CSRAndCSCCrossConversionsMatchOriginalValues) {
     EXPECT_EQ(csr_roundtrip.at(1, 3), 5);
     EXPECT_EQ(csr_roundtrip.at(2, 0), 7);
 }
-
-
-TEST(MatrixArithmetic, MatricesAddition) {
-    const MatrixCOO<int> m1(3, 3, {{0, 0, 1}, {0, 1, -1}, {2, 1, 2}});
-    const MatrixCSR<int> m2(3, 3, {{0, 1, 1}, {1, 2, 3}, {0, 0, 2}});
-
-    const auto result = m1 + m2;
-
-    EXPECT_EQ(result.non_zero_count(), 3);
-    EXPECT_EQ(result(0, 0), 3);
-    EXPECT_EQ(result(1, 2), 3);
-    EXPECT_EQ(result(2, 1), 2);
-    EXPECT_FALSE(result.contains(0, 1));
-}

@@ -57,7 +57,7 @@ namespace detail {
                 } else {
                     auto result = on_right(b_values[b_i]);
                     if (result)
-                        append(row, a_col_indices[a_i], *result);
+                        append(row, b_col_indices[b_i], *result);
                     b_i++;
                 }
             }
@@ -71,7 +71,7 @@ namespace detail {
             while (b_i < b_end) {
                 auto result = on_right(b_values[b_i]);
                 if (result)
-                    append(row, a_col_indices[a_i], *result);
+                    append(row, b_col_indices[b_i], *result);
                 b_i++;
             }
         }

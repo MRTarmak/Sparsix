@@ -99,7 +99,7 @@ namespace sparsix {
 
     template <SparseMatrix Matrix>
     auto divide(const Matrix &A, const typename Matrix::value_type &x) {
-        if (x == T{})
+        if (x == typename Matrix::value_type{})
             throw std::runtime_error("Division by zero.");
 
         return divide(toCSR(A), x);

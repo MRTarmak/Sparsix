@@ -1,3 +1,5 @@
+#pragma once
+
 template<typename M>
 concept SparseMatrix = requires(M m) {
     typename M::value_type;
