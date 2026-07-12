@@ -2,86 +2,25 @@
 #include <Sparsix/MatrixCSC.h>
 #include <Sparsix/MatrixCSR.h>
 #include <Sparsix/Concepts/SparseMatrix.h>
+#include <Sparsix/Detail/BinaryMerge.h>
 #include <Sparsix/Detail/Conversions.h>
 
 namespace sparsix {
     template <typename T>
     MatrixCSR<T> add(const MatrixCSR<T> &A, const MatrixCSR<T> &B) {
-        if (A.rows_count() != B.rows_count() ||
-            A.cols_count() != B.cols_count()) 
-        {
-            throw std::invalid_argument("Matrices dimentions bla bla"); // TODO write exception message
-        }
-
-        size_t rows_count = A.rows_count();
-        size_t cols_count = A.cols_count();
-
-        std::vector<size_t> col_indices;
-        std::vector<size_t> row_ptr;
-        std::vector<T> values;
-
-        col_indices.reserve(A.non_zero_count() + B.non_zero_count());
-        values.reserve(A.non_zero_count() + B.non_zero_count());
-        row_ptr.assign(rows_count + 1, 0);
-
-        const auto &a_col_indices = A.col_indices();
-        const auto &a_row_ptr = A.row_ptr();
-        const auto &a_values = A.values();
-
-        const auto &b_col_indices = B.col_indices();
-        const auto &b_row_ptr = B.row_ptr();
-        const auto &b_values = B.values();
-
-        for (size_t row = 0; row < rows_count; row++) {
-            size_t a_i = a_row_ptr[row];
-            size_t b_i = b_row_ptr[row];
-            size_t a_end = a_row_ptr[row + 1];
-            size_t b_end = b_row_ptr[row + 1];
-
-            while (a_i < a_end && b_i < b_end) {
-                if (a_col_indices[a_i] == b_col_indices[b_i]) {
-                    auto sum = a_values[a_i] + b_values[b_i];
-                    if (sum != T{}) {
-                        col_indices.push_back(a_col_indices[a_i]);
-                        values.push_back(sum);
-                        row_ptr[row + 1]++;
-                    }
-                    a_i++;
-                    b_i++;
-                } else if (a_col_indices[a_i] < b_col_indices[b_i]) {
-                    col_indices.push_back(a_col_indices[a_i]);
-                    values.push_back(a_values[a_i]);
-                    row_ptr[row + 1]++;
-                    a_i++;
-                } else {
-                    col_indices.push_back(b_col_indices[b_i]);
-                    values.push_back(b_values[b_i]);
-                    row_ptr[row + 1]++;
-                    b_i++;
-                }
-            }
-
-            while (a_i < a_end) {
-                col_indices.push_back(a_col_indices[a_i]);
-                values.push_back(a_values[a_i]);
-                row_ptr[row + 1]++;
-                a_i++;
-            }
-            while (b_i < b_end) {
-                col_indices.push_back(b_col_indices[b_i]);
-                values.push_back(b_values[b_i]);
-                row_ptr[row + 1]++;
-                b_i++;
-            }
-        }
-
-        for (size_t i = 1; i <= rows_count; i++)
-            row_ptr[i] += row_ptr[i - 1];
-
-        return MatrixCSR(rows_count, cols_count, 
-                         std::move(col_indices), 
-                         std::move(row_ptr), 
-                         std::move(values));
+        return detail::binary_merge(A, B, 
+        [](auto a_value, auto b_value) -> std::optional<T> {
+            auto sum = a_value + b_value;
+            if (sum != T{})
+                return std::optional{sum};
+            return std::nullopt;
+        },
+        [](auto a_value) -> std::optional<T> {
+            return std::optional{a_value};
+        },
+        [](auto b_value) -> std::optional<T> {
+            return std::optional{b_value};
+        });
     }
 
     template <SparseMatrix MatrixA, SparseMatrix MatrixB>
@@ -89,26 +28,157 @@ namespace sparsix {
         if (A.rows_count() != B.rows_count() ||
             A.cols_count() != B.cols_count()) 
         {
-            throw std::invalid_argument("Matrices dimentions bla bla"); // TODO write exception message
+            throw std::invalid_argument("Matrices dimensions must match.");
         }
 
         return add(toCSR(A), toCSR(B));
     }
 
-    // A += B
+    template <typename T>
+    MatrixCSR<T> subtract(const MatrixCSR<T> &A, const MatrixCSR<T> &B) {
+        return detail::binary_merge(A, B, 
+        [](auto a_value, auto b_value) -> std::optional<T> {
+            auto sum = a_value - b_value;
+            if (sum != T{})
+                return std::optional{sum};
+            return std::nullopt;
+        },
+        [](auto a_value) -> std::optional<T> {
+            return std::optional{a_value};
+        },
+        [](auto b_value) -> std::optional<T> {
+            return std::optional{-b_value};
+        });
+    }
 
-    // A - B, A -= B
+    template <SparseMatrix MatrixA, SparseMatrix MatrixB>
+    auto subtract(const MatrixA &A, const MatrixB &B) {
+        if (A.rows_count() != B.rows_count() ||
+            A.cols_count() != B.cols_count()) 
+        {
+            throw std::invalid_argument("Matrices dimensions must match.");
+        }
 
-    // A * scalar, scalar * A, A *= scalar
+        return subtract(toCSR(A), toCSR(B));
+    }
 
-    // A / scalar, A /= scalar
+    template <typename T>
+    MatrixCSR<T> multiply(const MatrixCSR<T> &A, const T &x) {
+        std::vector<T> values;
+        values.reserve(A.non_zero_count());
 
-    // cwiseMultiply(A, B)
+        for (const auto &v : A.values())
+            values.push_back(v * x);
 
-    // cwiseDivide(A, B)
+        return MatrixCSR(A.rows_count(), A.cols_count(), A.col_indices(), A.row_ptr(), std::move(values));
+    }
+
+    template <SparseMatrix Matrix>
+    auto multiply(const Matrix &A, const typename Matrix::value_type &x) {
+        return multiply(toCSR(A), x);
+    }
+
+    template <SparseMatrix Matrix>
+    auto multiply(const typename Matrix::value_type &x, const Matrix &A) {
+        return multiply(toCSR(A), x);
+    }
+
+    template <typename T>
+    MatrixCSR<T> divide(const MatrixCSR<T> &A, const T &x) {
+        if (x == T{})
+            throw std::runtime_error("Division by zero.");
+
+        std::vector<T> values;
+        values.reserve(A.non_zero_count());
+
+        for (const auto &v : A.values())
+            values.push_back(v / x);
+
+        return MatrixCSR(A.rows_count(), A.cols_count(), A.col_indices(), A.row_ptr(), std::move(values));
+    }
+
+    template <SparseMatrix Matrix>
+    auto divide(const Matrix &A, const typename Matrix::value_type &x) {
+        if (x == T{})
+            throw std::runtime_error("Division by zero.");
+
+        return divide(toCSR(A), x);
+    }
+
+    template <typename T>
+    MatrixCSR<T> cwise_multiply(const MatrixCSR<T> &A, const MatrixCSR<T> &B) {
+        return detail::binary_merge(A, B, 
+        [](auto a_value, auto b_value) -> std::optional<T> {
+            return std::optional{a_value * b_value};
+        },
+        [](auto a_value) -> std::optional<T> {
+            return std::nullopt; 
+        },
+        [](auto b_value) -> std::optional<T> {
+            return std::nullopt;
+        });
+    }
+
+    template <SparseMatrix MatrixA, SparseMatrix MatrixB>
+    auto cwise_multiply(const MatrixA &A, const MatrixB &B) {
+        if (A.rows_count() != B.rows_count() ||
+            A.cols_count() != B.cols_count()) 
+        {
+            throw std::invalid_argument("Matrices dimensions must match.");
+        }
+
+        return cwise_multiply(toCSR(A), toCSR(B));
+    }
+
+    template <typename T>
+    MatrixCSR<T> cwise_divide(const MatrixCSR<T> &A, const MatrixCSR<T> &B) {
+        return detail::binary_merge(A, B, 
+        [](auto a_value, auto b_value) -> std::optional<T> {
+            if (b_value == T{})
+                throw std::runtime_error("Division by zero.");
+            return std::optional{a_value / b_value};
+        },
+        [](auto a_value) -> std::optional<T> {
+            throw std::runtime_error("Division by zero.");
+        },
+        [](auto b_value) -> std::optional<T> {
+            return std::nullopt;
+        });
+    }
+
+    template <SparseMatrix MatrixA, SparseMatrix MatrixB>
+    auto cwise_divide(const MatrixA &A, const MatrixB &B) {
+        if (A.rows_count() != B.rows_count() ||
+            A.cols_count() != B.cols_count()) 
+        {
+            throw std::invalid_argument("Matrices dimensions must match.");
+        }
+
+        return cwise_divide(toCSR(A), toCSR(B));
+    }
 }
 
 template <SparseMatrix MatrixA, SparseMatrix MatrixB>
 auto operator+(const MatrixA &A, const MatrixB &B) {
     return sparsix::add(A, B);
+}
+
+template <SparseMatrix MatrixA, SparseMatrix MatrixB>
+auto operator-(const MatrixA &A, const MatrixB &B) {
+    return sparsix::subtract(A, B);
+}
+
+template <SparseMatrix Matrix>
+auto operator*(const Matrix &A, const typename Matrix::value_type &x) {
+    return sparsix::multiply(A, x);
+}
+
+template <SparseMatrix Matrix>
+auto operator*(const typename Matrix::value_type &x, const Matrix &A) {
+    return sparsix::multiply(x, A);
+}
+
+template <SparseMatrix Matrix>
+auto operator/(const Matrix &A, const typename Matrix::value_type &x) {
+    return sparsix::divide(A, x);
 }

@@ -75,6 +75,16 @@ public:
                   row_ptr_(std::move(row_ptr)), 
                   values_(std::move(values)) {}
 
+    explicit MatrixCSR(size_t rows_count, size_t cols_count,
+                       const std::vector<size_t> &col_indices,
+                       const std::vector<size_t> &row_ptr,
+                       std::vector<T> &&values)
+                : rows_count_(rows_count), 
+                  cols_count_(cols_count), 
+                  col_indices_(col_indices), 
+                  row_ptr_(row_ptr), 
+                  values_(std::move(values)) {}
+
     T at(size_t row, size_t col) const {
         check_bounds(row, col);
         auto index = find_index_unchecked(row, col);
