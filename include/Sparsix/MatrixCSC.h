@@ -3,6 +3,7 @@
 #include <vector>
 
 #include <Sparsix/Concepts/MatrixScalar.h>
+#include <Sparsix/Core/MatrixEntry.h>
 #include <Sparsix/Core/Triplet.h>
 #include <Sparsix/Detail/PrepareTriplets.h>
 #include <Sparsix/Detail/TripletsFromDense.h>
@@ -17,6 +18,36 @@ public:
     static_assert(is_matrix_scalar_v<T>, "MatrixCSC requires an arithmetic or std::complex value type.");
 
     using value_type = T;
+
+    class Iterator;
+    class ConstIterator;
+
+    using iterator = Iterator;
+    using const_iterator = ConstIterator;
+
+    iterator begin() {
+        return iterator(this, 0, 0);
+    }
+
+    iterator end() {
+        return iterator(this, values_.size(), rows_count_);
+    }
+
+    const_iterator begin() const {
+        return const_iterator(this, 0, 0);
+    }
+
+    const_iterator end() const {
+        return const_iterator(this, values_.size(), rows_count_);
+    }
+
+    const_iterator cbegin() const {
+        return begin();
+    }
+
+    const_iterator cend() const {
+        return end();
+    }
 
     explicit MatrixCSC() : row_indices_(), col_ptr_(1, 0), values_(), rows_count_(0), cols_count_(0) {}
 
@@ -297,4 +328,122 @@ private:
 
     size_t rows_count_;
     size_t cols_count_;
+};
+
+#if defined(__cpp_concepts) && __cpp_concepts >= 201907L
+template <MatrixScalar T>
+#else
+template <typename T>
+#endif
+class MatrixCSC<T>::Iterator {
+public:
+    using iterator_category = std::forward_iterator_tag;
+    using value_type = MatrixEntry<T>;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type*;
+    using reference = value_type;
+
+    Iterator() : matrix_(nullptr), index_(0), col_(0) {}
+
+    Iterator(MatrixCSC<T> *matrix, size_t index, size_t col) : matrix_(matrix), index_(index), col_(col) {}
+
+    reference operator*() const {
+        cache_ = MatrixEntry<T>(matrix_->row_indices_[index_], col_, matrix_->values_[index_]);
+        return cache_;
+    }
+
+    pointer operator->() const {
+        operator*();
+        return &cache_;
+    }
+
+    Iterator& operator++() {
+        index_++;
+        while (col_ + 1 < matrix_->col_ptr_.size() && index_ >= matrix_->col_ptr_[col_ + 1]) {
+            col_++;
+        }
+
+        return *this;
+    }
+
+    Iterator operator++(int) {
+        Iterator tmp = *this;
+        ++(*this);
+        return tmp;
+    }
+
+    bool operator==(const Iterator& other) const {
+        return matrix_ == other.matrix_ && index_ == other.index_;
+    }
+
+    bool operator!=(const Iterator& other) const {
+        return !operator==(other);
+    }
+
+private:
+    MatrixCSC<T> *matrix_;
+    size_t index_;
+    size_t col_;
+
+    mutable MatrixEntry<T> cache_;
+};
+
+#if defined(__cpp_concepts) && __cpp_concepts >= 201907L
+template <MatrixScalar T>
+#else
+template <typename T>
+#endif
+class MatrixCSC<T>::ConstIterator {
+public:
+    using iterator_category = std::forward_iterator_tag;
+    using value_type = ConstMatrixEntry<T>;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type*;
+    using reference = value_type;
+
+    ConstIterator() : matrix_(nullptr), index_(0), col_(0) {}
+
+    ConstIterator(const MatrixCSC<T> *matrix, size_t index, size_t col) : matrix_(matrix), index_(index), col_(col) {}
+
+    ConstIterator(const Iterator &other) : matrix_(other.matrix_), index_(other.index_), col_(other.col_) {}
+
+    reference operator*() const {
+        cache_ = ConstMatrixEntry<T>(matrix_->row_indices_[index_], col_, matrix_->values_[index_]);
+        return cache_;
+    }
+
+    pointer operator->() const {
+        operator*();
+        return &cache_;
+    }
+
+    Iterator& operator++() {
+        index_++;
+        while (col_ + 1 < matrix_->col_ptr_.size() && index_ >= matrix_->col_ptr_[col_ + 1]) {
+            col_++;
+        }
+
+        return *this;
+    }
+
+    Iterator operator++(int) {
+        Iterator tmp = *this;
+        ++(*this);
+        return tmp;
+    }
+
+    bool operator==(const Iterator& other) const {
+        return matrix_ == other.matrix_ && index_ == other.index_;
+    }
+
+    bool operator!=(const Iterator& other) const {
+        return !operator==(other);
+    }
+
+private:
+    const MatrixCSC<T> *matrix_;
+    size_t index_;
+    size_t col_;
+
+    mutable ConstMatrixEntry<T> cache_;
 };

@@ -14,6 +14,7 @@
 #include <vector>
 
 #include <Sparsix/Concepts/MatrixScalar.h>
+#include <Sparsix/Core/MatrixEntry.h>
 #include <Sparsix/Core/Triplet.h>
 #include <Sparsix/Detail/PrepareTriplets.h>
 #include <Sparsix/Detail/TripletsFromDense.h>
@@ -29,6 +30,36 @@ public:
     static_assert(is_matrix_scalar_v<T>, "MatrixCOO requires an arithmetic or std::complex value type.");
 
     using value_type = T;
+
+    class Iterator;
+    class ConstIterator;
+
+    using iterator = Iterator;
+    using const_iterator = ConstIterator;
+
+    iterator begin() {
+        return iterator(this, 0, 0);
+    }
+
+    iterator end() {
+        return iterator(this, values_.size(), rows_count_);
+    }
+
+    const_iterator begin() const {
+        return const_iterator(this, 0, 0);
+    }
+
+    const_iterator end() const {
+        return const_iterator(this, values_.size(), rows_count_);
+    }
+
+    const_iterator cbegin() const {
+        return begin();
+    }
+
+    const_iterator cend() const {
+        return end();
+    }
 
     explicit MatrixCOO() : rows_(), cols_(), values_(), rows_count_(0), cols_count_(0), sorted_(true) {}
 
@@ -441,4 +472,114 @@ private:
     size_t cols_count_;
 
     bool sorted_;
+};
+
+#if defined(__cpp_concepts) && __cpp_concepts >= 201907L
+template <MatrixScalar T>
+#else
+template <typename T>
+#endif
+class MatrixCOO<T>::Iterator {
+public:
+    using iterator_category = std::forward_iterator_tag;
+    using value_type = MatrixEntry<T>;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type*;
+    using reference = value_type;
+
+    Iterator() : matrix_(nullptr), index_(0) {}
+
+    Iterator(MatrixCOO<T> *matrix, size_t index) : matrix_(matrix), index_(index) {}
+
+    reference operator*() const {
+        cache_ = MatrixEntry<T>(matrix_->rows_[index_], matrix_->cols_[index_], matrix_->values_[index_]);
+        return cache_;
+    }
+
+    pointer operator->() const {
+        operator*();
+        return &cache_;
+    }
+
+    Iterator& operator++() {
+        index_++;
+
+        return *this;
+    }
+
+    Iterator operator++(int) {
+        Iterator tmp = *this;
+        ++(*this);
+        return tmp;
+    }
+
+    bool operator==(const Iterator& other) const {
+        return matrix_ == other.matrix_ && index_ == other.index_;
+    }
+
+    bool operator!=(const Iterator& other) const {
+        return !operator==(other);
+    }
+
+private:
+    MatrixCOO<T> *matrix_;
+    size_t index_;
+
+    mutable MatrixEntry<T> cache_;
+};
+
+#if defined(__cpp_concepts) && __cpp_concepts >= 201907L
+template <MatrixScalar T>
+#else
+template <typename T>
+#endif
+class MatrixCOO<T>::ConstIterator {
+public:
+    using iterator_category = std::forward_iterator_tag;
+    using value_type = ConstMatrixEntry<T>;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type*;
+    using reference = value_type;
+
+    ConstIterator() : matrix_(nullptr), index_(0) {}
+
+    ConstIterator(const MatrixCOO<T> *matrix, size_t index) : matrix_(matrix), index_(index) {}
+
+    ConstIterator(const Iterator &other) : matrix_(other.matrix_), index_(other.index_) {}
+
+    reference operator*() const {
+        cache_ = ConstMatrixEntry<T>(matrix_->rows_[index_], matrix_->cols_[index_], matrix_->values_[index_]);
+        return cache_;
+    }
+
+    pointer operator->() const {
+        operator*();
+        return &cache_;
+    }
+
+    Iterator& operator++() {
+        index_++;
+
+        return *this;
+    }
+
+    Iterator operator++(int) {
+        Iterator tmp = *this;
+        ++(*this);
+        return tmp;
+    }
+
+    bool operator==(const Iterator& other) const {
+        return matrix_ == other.matrix_ && index_ == other.index_;
+    }
+
+    bool operator!=(const Iterator& other) const {
+        return !operator==(other);
+    }
+
+private:
+    const MatrixCOO<T> *matrix_;
+    size_t index_;
+
+    mutable ConstMatrixEntry<T> cache_;
 };
