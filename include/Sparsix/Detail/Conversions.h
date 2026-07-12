@@ -102,3 +102,20 @@ template <typename T>
 MatrixCSC<T> toCSC(MatrixCSR<T> &&csr) {
     return toCSC(static_cast<const MatrixCSR<T>&>(csr));
 }
+
+// Identities
+
+template<typename T>
+const MatrixCOO<T>& toCOO(const MatrixCOO<T>& coo) {
+    return coo;
+}
+
+template<typename T>
+const MatrixCSR<T>& toCSR(const MatrixCSR<T>& csr) {
+    return csr;
+}
+
+template<typename T>
+const MatrixCSC<T>& toCSC(const MatrixCSC<T>& csc) {
+    return csc;
+}

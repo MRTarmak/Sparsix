@@ -13,16 +13,15 @@ template <MatrixScalar T>
 template <typename T>
 #endif
 class MatrixCSR {
-    static_assert(is_matrix_scalar_v<T>, "MatrixCSR requires an arithmetic or std::complex value type.");
-
 public:
+    static_assert(is_matrix_scalar_v<T>, "MatrixCSR requires an arithmetic or std::complex value type.");
 
     using value_type = T;
 
-    explicit MatrixCSR() : col_indices_(), row_ptr_(), values_(), rows_count_(0), cols_count_(0) {}
+    explicit MatrixCSR() : col_indices_(), row_ptr_(1, 0), values_(), rows_count_(0), cols_count_(0) {}
 
     explicit MatrixCSR(size_t rows_count, size_t cols_count) 
-        : col_indices_(), row_ptr_(), values_(), rows_count_(rows_count), cols_count_(cols_count) {}
+        : col_indices_(), row_ptr_(rows_count + 1, 0), values_(), rows_count_(rows_count), cols_count_(cols_count) {}
 
     explicit MatrixCSR(size_t rows_count, size_t cols_count, const std::vector<Triplet<T>> &triplets) {
         detail::prepare_triplets(rows_count, cols_count, triplets);
@@ -65,6 +64,16 @@ public:
         for (size_t i = 1; i <= rows_count_; i++)
             row_ptr_[i] += row_ptr_[i - 1];
     }
+
+    explicit MatrixCSR(size_t rows_count, size_t cols_count, 
+                       std::vector<size_t> &&col_indices, 
+                       std::vector<size_t> &&row_ptr, 
+                       std::vector<T> &&values)
+                : rows_count_(rows_count), 
+                  cols_count_(cols_count), 
+                  col_indices_(std::move(col_indices)), 
+                  row_ptr_(std::move(row_ptr)), 
+                  values_(std::move(values)) {}
 
     T at(size_t row, size_t col) const {
         check_bounds(row, col);

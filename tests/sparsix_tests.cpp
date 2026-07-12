@@ -9,20 +9,18 @@
 #include <Sparsix.h>
 
 namespace {
+    template <typename MatrixType>
+    void expect_dense_matrix_eq(const MatrixType &matrix, const std::vector<std::vector<typename MatrixType::value_type>> &expected) {
+        ASSERT_EQ(matrix.rows_count(), expected.size());
+        ASSERT_EQ(matrix.cols_count(), expected.empty() ? 0U : expected.front().size());
 
-template <typename MatrixType>
-void expect_dense_matrix_eq(const MatrixType &matrix, const std::vector<std::vector<typename MatrixType::value_type>> &expected) {
-    ASSERT_EQ(matrix.rows_count(), expected.size());
-    ASSERT_EQ(matrix.cols_count(), expected.empty() ? 0U : expected.front().size());
-
-    for (size_t row = 0; row < expected.size(); row++) {
-        ASSERT_EQ(expected[row].size(), matrix.cols_count());
-        for (size_t col = 0; col < expected[row].size(); col++) {
-            EXPECT_EQ(matrix(row, col), expected[row][col]) << "Mismatch at (" << row << ", " << col << ")";
+        for (size_t row = 0; row < expected.size(); row++) {
+            ASSERT_EQ(expected[row].size(), matrix.cols_count());
+            for (size_t col = 0; col < expected[row].size(); col++) {
+                EXPECT_EQ(matrix(row, col), expected[row][col]) << "Mismatch at (" << row << ", " << col << ")";
+            }
         }
     }
-}
-
 }
 
 TEST(MatrixCOOTest, DenseConstructionAndLookup) {
@@ -201,4 +199,18 @@ TEST(MatrixConversionTest, CSRAndCSCCrossConversionsMatchOriginalValues) {
     EXPECT_EQ(csr_roundtrip.at(0, 1), 3);
     EXPECT_EQ(csr_roundtrip.at(1, 3), 5);
     EXPECT_EQ(csr_roundtrip.at(2, 0), 7);
+}
+
+
+TEST(MatrixArithmetic, MatricesAddition) {
+    const MatrixCOO<int> m1(3, 3, {{0, 0, 1}, {0, 1, -1}, {2, 1, 2}});
+    const MatrixCSR<int> m2(3, 3, {{0, 1, 1}, {1, 2, 3}, {0, 0, 2}});
+
+    const auto result = m1 + m2;
+
+    EXPECT_EQ(result.non_zero_count(), 3);
+    EXPECT_EQ(result(0, 0), 3);
+    EXPECT_EQ(result(1, 2), 3);
+    EXPECT_EQ(result(2, 1), 2);
+    EXPECT_FALSE(result.contains(0, 1));
 }

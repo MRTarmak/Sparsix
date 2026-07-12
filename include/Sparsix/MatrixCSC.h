@@ -13,16 +13,15 @@ template <MatrixScalar T>
 template <typename T>
 #endif
 class MatrixCSC {
-    static_assert(is_matrix_scalar_v<T>, "MatrixCSC requires an arithmetic or std::complex value type.");
-
 public:
+    static_assert(is_matrix_scalar_v<T>, "MatrixCSC requires an arithmetic or std::complex value type.");
 
     using value_type = T;
 
-    explicit MatrixCSC() : row_indices_(), col_ptr_(), values_(), rows_count_(0), cols_count_(0) {}
+    explicit MatrixCSC() : row_indices_(), col_ptr_(1, 0), values_(), rows_count_(0), cols_count_(0) {}
 
     explicit MatrixCSC(size_t rows_count, size_t cols_count) 
-        : row_indices_(), col_ptr_(), values_(), rows_count_(rows_count), cols_count_(cols_count) {}
+        : row_indices_(), col_ptr_(cols_count + 1, 0), values_(), rows_count_(rows_count), cols_count_(cols_count) {}
 
     explicit MatrixCSC(size_t rows_count, size_t cols_count, const std::vector<Triplet<T>> &triplets) {
         detail::prepare_triplets(rows_count, cols_count, triplets, MajorOrder::ColumnOrder);
