@@ -64,6 +64,16 @@ public:
             col_ptr_[i] += col_ptr_[i - 1];
     }
 
+    explicit MatrixCSC(size_t rows_count, size_t cols_count, 
+                       std::vector<size_t> &&row_indices, 
+                       std::vector<size_t> &&col_ptr, 
+                       std::vector<T> &&values)
+                : rows_count_(rows_count), 
+                  cols_count_(cols_count), 
+                  row_indices_(std::move(row_indices)), 
+                  col_ptr_(std::move(col_ptr)), 
+                  values_(std::move(values)) {}
+
     T at(size_t row, size_t col) const {
         check_bounds(row, col);
         auto index = find_index_unchecked(row, col);

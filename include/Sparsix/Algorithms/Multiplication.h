@@ -36,6 +36,7 @@ namespace sparsix {
         return multiply(toCSR(A), vector);
     }
 
+    // TODO переделать с алгоритмом Густавсона
     template <typename T>
     MatrixCSR<T> multiply(const MatrixCSR<T> &A, const MatrixCSC<T> &B) {
         if (A.cols_count() != B.rows_count())
