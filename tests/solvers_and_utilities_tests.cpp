@@ -1,4 +1,7 @@
 #include <complex>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -140,4 +143,69 @@ TEST(BiCGSTABTest, RejectsInvalidVectorSizes) {
 
     EXPECT_THROW(sparsix::bicgstab(matrix, std::vector<double>{1.0}), std::invalid_argument);
     EXPECT_THROW(sparsix::bicgstab(matrix, std::vector<double>{1.0, 2.0}, std::optional<std::vector<double>>(std::vector<double>{0.0})), std::invalid_argument);
+}
+
+TEST(MatrixIOTest, MatrixMarketRoundTripPreservesComplexValuesAndRequestedFormat) {
+    const auto path = std::filesystem::temp_directory_path() / "sparsix_matrix_market_complex_test.mtx";
+    const MatrixCOO<std::complex<double>> source(2, 3, {
+        {0, 2, {1.5, -2.0}}, {1, 0, {-3.0, 0.25}}
+    });
+
+    sparsix::write_matrix_market(source, path);
+    const auto restored = sparsix::read_matrix_market<MatrixCSR<std::complex<double>>>(path);
+
+    EXPECT_EQ(restored.rows_count(), 2U);
+    EXPECT_EQ(restored.cols_count(), 3U);
+    EXPECT_EQ(restored.non_zero_count(), 2U);
+    EXPECT_EQ(restored(0, 2), std::complex<double>(1.5, -2.0));
+    EXPECT_EQ(restored(1, 0), std::complex<double>(-3.0, 0.25));
+    std::filesystem::remove(path);
+}
+
+TEST(MatrixIOTest, MatrixMarketReaderSupportsSymmetricCoordinateInput) {
+    const auto path = std::filesystem::temp_directory_path() / "sparsix_matrix_market_symmetric_test.mtx";
+    {
+        std::ofstream output(path);
+        output << "%%MatrixMarket matrix coordinate real symmetric\n"
+                  "% upper triangular entries\n"
+                  "2 2 3\n"
+                  "1 1 2\n"
+                  "1 2 -1\n"
+                  "2 2 4\n";
+    }
+
+    const auto matrix = sparsix::load_matrix_market<double>(path);
+
+    EXPECT_EQ(matrix(0, 0), 2.0);
+    EXPECT_EQ(matrix(0, 1), -1.0);
+    EXPECT_EQ(matrix(1, 0), -1.0);
+    EXPECT_EQ(matrix(1, 1), 4.0);
+    std::filesystem::remove(path);
+}
+
+TEST(MatrixIOTest, CsvRoundTripPreservesComplexTriplets) {
+    const auto path = std::filesystem::temp_directory_path() / "sparsix_triplets_complex_test.csv";
+    const MatrixCSR<std::complex<double>> source(3, 2, {
+        {0, 1, {2.0, 3.0}}, {2, 0, {-1.0, 4.5}}
+    });
+
+    sparsix::write_triplets_csv(source, path);
+    const auto restored = sparsix::read_triplets_csv<MatrixCSC<std::complex<double>>>(path);
+
+    EXPECT_EQ(restored.rows_count(), 3U);
+    EXPECT_EQ(restored.cols_count(), 2U);
+    EXPECT_EQ(restored(0, 1), std::complex<double>(2.0, 3.0));
+    EXPECT_EQ(restored(2, 0), std::complex<double>(-1.0, 4.5));
+    std::filesystem::remove(path);
+}
+
+TEST(MatrixIOTest, StreamOutputShowsDimensionsNonZeroCountAndPreview) {
+    const MatrixCOO<int> matrix(2, 4, {
+        {0, 0, 1}, {0, 1, 2}, {0, 2, 3}, {0, 3, 4}, {1, 0, 5}, {1, 1, 6}
+    });
+    std::ostringstream output;
+
+    output << matrix;
+
+    EXPECT_EQ(output.str(), "SparseMatrix(2x4, nnz=6) [(0, 0)=1, (0, 1)=2, (0, 2)=3, (0, 3)=4, (1, 0)=5, ...]");
 }

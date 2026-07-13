@@ -10,3 +10,6 @@
 #include <Sparsix/Algorithms/Transpose.h>
 #include <Sparsix/Algorithms/Utilities.h>
 #include <Sparsix/Detail/Conversions.h>
+#include <Sparsix/IO/CSV.h>
+#include <Sparsix/IO/MatrixMarket.h>
+#include <Sparsix/IO/Stream.h>
