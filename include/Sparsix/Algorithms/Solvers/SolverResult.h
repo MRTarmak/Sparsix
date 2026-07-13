@@ -1,3 +1,7 @@
+#pragma once
+
+#include <vector>
+
 namespace sparsix {
     template<typename T>
     struct SolverResult

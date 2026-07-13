@@ -1,3 +1,6 @@
+#pragma once
+
+#include <limits>
 #include <optional>
 #include <stdexcept>
 #include <vector>
@@ -21,10 +24,10 @@ namespace sparsix {
             throw std::invalid_argument("Matrix A must be symmetric. Use sparsix::is_symmetric(A) to check symmetry.");
 
         if (b.size() != A.rows_count())
-            throw std::invalid_argument("The number of columns in A and the size of vector b must match.");
+            throw std::invalid_argument("The number of rows in A and the size of vector b must match.");
         
         if (x0 && x0->size() != A.cols_count())
-            throw std::invalid_argument("The number of rows in A and the size of vector x0 must match.");
+            throw std::invalid_argument("The number of columns in A and the size of vector x0 must match.");
 
         std::vector<T> x;
         if (!x0)
@@ -32,16 +35,15 @@ namespace sparsix {
         else
             x = *x0;
 
-        auto estimation = A * x;
-        std::vector<T> r(b.size());
-        for (size_t i = 0; i < b.size(); i++) {
-            r[i] = b[i] - estimation[i];
-        }
+        std::vector<T> r = b;
+        axpy(T{-1}, A * x, r);
+
+        auto residual = norm2(r);
+        if (residual <= tolerance)
+            return SolverResult<T>(x, 0, residual, true);
+
         std::vector<T> p = r;
         auto rr = dot(r, r);
-
-        if (norm2(r) <= tolerance)
-            return SolverResult(x, 0, norm2(r), true);
 
         size_t iterations = 0;
         while(iterations < max_iterations) {
@@ -49,18 +51,19 @@ namespace sparsix {
             auto Ap = A * p;
 
             auto denominator = dot(p, Ap);
-            if (std::abs(denominator) == real_type<T>{})
-                throw std::runtime_error("Division by zero.");
+            if (std::abs(denominator) <= std::numeric_limits<real_type<T>>::epsilon())
+                break;
             auto alpha = rr / denominator;
 
             axpy(alpha, p, x);
             axpy(-alpha, Ap, r);
 
-            if (norm2(r) <= tolerance)
-                return SolverResult(x, iterations, norm2(r), true);
+            residual = norm2(r);
+            if (residual <= tolerance)
+                return SolverResult<T>(x, iterations, residual, true);
 
-            if (std::abs(rr) == real_type<T>{})
-                throw std::runtime_error("Division by zero.");
+            if (std::abs(rr) <= std::numeric_limits<real_type<T>>::epsilon())
+                break;
             auto rr_new = dot(r, r);
             auto beta = rr_new / rr;
 
@@ -70,6 +73,6 @@ namespace sparsix {
             axpy(T{1}, r, p);
         }
 
-        return SolverResult(x, iterations, norm2(r), false);
+        return SolverResult<T>(x, iterations, norm2(r), false);
     }
 }
