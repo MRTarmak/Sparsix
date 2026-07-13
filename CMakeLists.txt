@@ -48,6 +48,7 @@ if(SPARSIX_BUILD_TESTS)
     add_executable(sparsix_tests
         tests/sparsix_tests.cpp
         tests/algorithms_tests.cpp
+        tests/solvers_and_utilities_tests.cpp
     )
     target_link_libraries(sparsix_tests PRIVATE Sparsix::Sparsix GTest::gtest_main)
     target_compile_features(sparsix_tests PRIVATE cxx_std_20)
