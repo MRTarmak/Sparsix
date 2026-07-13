@@ -47,7 +47,7 @@ namespace sparsix {
     }
 
     template <typename T>
-    MatrixCSR<T> transpose(const MatrixCSC<T>& A) {
+    MatrixCSR<T> transpose(const MatrixCSC<T> &A) {
         const size_t rows_count = A.rows_count();
         const size_t cols_count = A.cols_count();
         const size_t nnz = A.non_zero_count();
@@ -88,7 +88,7 @@ namespace sparsix {
     }
 
     template <typename T>
-    MatrixCOO<T> transpose(const MatrixCOO<T>& A) {
+    MatrixCOO<T> transpose(const MatrixCOO<T> &A) {
         std::vector<Triplet<T>> triplets;
         triplets.reserve(A.non_zero_count());
 

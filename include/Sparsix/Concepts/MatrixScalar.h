@@ -17,3 +17,6 @@ inline constexpr bool is_matrix_scalar_v = std::is_arithmetic_v<T> || is_std_com
 
 template <typename T>
 concept MatrixScalar = is_matrix_scalar_v<T>;
+
+template <typename T>
+using real_type = decltype(std::abs(std::declval<T>()));
