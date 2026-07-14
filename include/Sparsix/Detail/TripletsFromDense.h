@@ -1,10 +1,18 @@
 #pragma once
 
+#include <cmath>
+#include <cstddef>
+#include <stdexcept>
 #include <vector>
 
 #include <Sparsix/Core/Triplet.h>
 
 namespace detail {
+    /**
+     * @brief Converts a rectangular dense matrix to non-zero coordinate triplets.
+     * @param threshold Values whose absolute value is not greater than this are omitted.
+     * @throws std::invalid_argument If dense rows have unequal lengths.
+     */
     template <typename T>
     std::vector<Triplet<T>> triplets_from_dense(const std::vector<std::vector<T>> &matrix, T threshold) {
         size_t rows_count = matrix.size();

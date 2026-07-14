@@ -1,5 +1,12 @@
 #pragma once
 
+#include <algorithm>
+#include <cstddef>
+#include <initializer_list>
+#include <iterator>
+#include <optional>
+#include <stdexcept>
+#include <utility>
 #include <vector>
 
 #include <Sparsix/Concepts/MatrixScalar.h>
@@ -13,53 +20,74 @@ template <MatrixScalar T>
 #else
 template <typename T>
 #endif
+/**
+ * @brief Sparse matrix stored in compressed sparse column (CSC) format.
+ * @tparam T Arithmetic or complex value type.
+ *
+ * The public API provides construction from dense data or COO triplets, random
+ * access, column-oriented mutation, iteration and direct read-only access to CSC
+ * arrays (`col_ptr`, `row_indices`, `values`).
+ */
 class MatrixCSC {
 public:
     static_assert(is_matrix_scalar_v<T>, "MatrixCSC requires an arithmetic or std::complex value type.");
 
+    /** @brief Value type stored by the matrix. */
     using value_type = T;
 
+    /** @brief Forward iterator over mutable CSC entries. */
     class Iterator;
+    /** @brief Forward iterator over read-only CSC entries. */
     class ConstIterator;
 
     using iterator = Iterator;
     using const_iterator = ConstIterator;
 
+    /** @brief Returns an iterator to the first stored entry. */
     iterator begin() {
         return iterator(this, 0, 0);
     }
 
+    /** @brief Returns the past-the-end iterator. */
     iterator end() {
         return iterator(this, values_.size(), rows_count_);
     }
 
+    /** @brief Returns a const iterator to the first stored entry. */
     const_iterator begin() const {
         return const_iterator(this, 0, 0);
     }
 
+    /** @brief Returns the const past-the-end iterator. */
     const_iterator end() const {
         return const_iterator(this, values_.size(), rows_count_);
     }
 
+    /** @brief Returns a const iterator to the first stored entry. */
     const_iterator cbegin() const {
         return begin();
     }
 
+    /** @brief Returns the const past-the-end iterator. */
     const_iterator cend() const {
         return end();
     }
 
+    /** @brief Constructs an empty 0-by-0 CSC matrix. */
     explicit MatrixCSC() : row_indices_(), col_ptr_(1, 0), values_(), rows_count_(0), cols_count_(0) {}
 
+    /** @brief Constructs an empty CSC matrix with the requested dimensions. */
     explicit MatrixCSC(size_t rows_count, size_t cols_count) 
         : row_indices_(), col_ptr_(cols_count + 1, 0), values_(), rows_count_(rows_count), cols_count_(cols_count) {}
 
+    /** @brief Constructs a CSC matrix from validated coordinate triplets. */
     explicit MatrixCSC(size_t rows_count, size_t cols_count, const std::vector<Triplet<T>> &triplets) {
         detail::prepare_triplets(rows_count, cols_count, triplets, MajorOrder::ColumnOrder);
 
         initialize(rows_count, cols_count, triplets.begin(), triplets.end());
     }
 
+    /** @brief Constructs a CSC matrix from an initializer list of triplets. */
     explicit MatrixCSC(size_t rows_count, size_t cols_count, std::initializer_list<Triplet<T>> triplets) {
         std::vector<Triplet<T>> tmp(triplets);
         detail::prepare_triplets(rows_count, cols_count, tmp, MajorOrder::ColumnOrder);
@@ -67,6 +95,7 @@ public:
         initialize(rows_count, cols_count, tmp.begin(), tmp.end());
     }
 
+    /** @brief Constructs a CSC matrix from dense rows, dropping values at the threshold. */
     explicit MatrixCSC(const std::vector<std::vector<T>> &matrix, T threshold = T{}) {
         auto triplets = detail::triplets_from_dense(matrix, threshold);
 
@@ -77,6 +106,7 @@ public:
         initialize(rows_count, cols_count, triplets.begin(), triplets.end());
     }
 
+    /** @brief Converts a COO matrix to CSC storage. */
     explicit MatrixCSC(MatrixCOO<T> coo) {
         coo.sort(MajorOrder::ColumnOrder);
 
@@ -95,6 +125,7 @@ public:
             col_ptr_[i] += col_ptr_[i - 1];
     }
 
+    /** @brief Constructs CSC storage by taking ownership of raw CSC arrays. */
     explicit MatrixCSC(size_t rows_count, size_t cols_count, 
                        std::vector<size_t> &&row_indices, 
                        std::vector<size_t> &&col_ptr, 
@@ -105,6 +136,7 @@ public:
                   col_ptr_(std::move(col_ptr)), 
                   values_(std::move(values)) {}
 
+    /** @brief Returns the value at a coordinate, or zero when it is not stored. */
     T at(size_t row, size_t col) const {
         check_bounds(row, col);
         auto index = find_index_unchecked(row, col);
@@ -114,10 +146,12 @@ public:
         return T{};
     }
 
+    /** @brief Shorthand for at(row, col). */
     T operator()(size_t row, size_t col) const {
         return at(row, col);
     }
 
+    /** @brief Changes matrix dimensions; force permits truncation of stored entries. */
     void reshape(size_t rows_count, size_t cols_count, bool force = false) {
         if (rows_count == 0 || cols_count == 0) {
             throw std::invalid_argument("Matrix dimensions must be greater than zero.");
@@ -167,6 +201,7 @@ public:
         }
     }
 
+    /** @brief Inserts a new non-zero value at an empty coordinate. */
     void insert(size_t row, size_t col, const T &value) {
         check_bounds(row, col);
 
@@ -193,6 +228,7 @@ public:
             col_ptr_[i]++;
     }
 
+    /** @brief Replaces an existing stored non-zero value. */
     void set(size_t row, size_t col, const T &value) {
         check_bounds(row, col);
 
@@ -211,6 +247,7 @@ public:
                                                 Use insert() to add it.");
     }
 
+    /** @brief Returns true when a coordinate has a stored entry. */
     bool contains(size_t row, size_t col) const {
         check_bounds(row, col);
         if (find_index_unchecked(row, col))
@@ -218,6 +255,7 @@ public:
         return false;
     }
 
+    /** @brief Erases the stored entry at a coordinate, if present. */
     void erase(size_t row, size_t col) {
         check_bounds(row, col);
 
@@ -232,37 +270,45 @@ public:
             col_ptr_[i]--;
     }
 
+    /** @brief Reserves capacity for at least nnz stored entries. */
     void reserve(size_t nnz) {
         row_indices_.reserve(nnz);
         values_.reserve(nnz);
     }
 
+    /** @brief Removes all stored entries while preserving dimensions. */
     void clear() {
         row_indices_.clear();
         values_.clear();
         col_ptr_.assign(cols_count_ + 1, 0);
     }
 
+    /** @brief Returns the number of rows. */
     size_t rows_count() const {
         return rows_count_;
     }
 
+    /** @brief Returns the number of columns. */
     size_t cols_count() const {
         return cols_count_;
     }
 
+    /** @brief Returns the CSC row-index array. */
     const std::vector<size_t> &row_indices() const {
         return row_indices_;
     }
 
+    /** @brief Returns the CSC column-offset array. */
     const std::vector<size_t> &col_ptr() const {
         return col_ptr_;
     }
 
+    /** @brief Returns the stored non-zero values. */
     const std::vector<T> &values() const {
         return values_;
     }
 
+    /** @brief Returns the number of stored non-zero entries. */
     size_t non_zero_count() const {
         return values_.size();
     }
@@ -335,6 +381,7 @@ template <MatrixScalar T>
 #else
 template <typename T>
 #endif
+/** @brief Forward iterator implementation for MatrixCSC stored entries. */
 class MatrixCSC<T>::Iterator {
 public:
     using iterator_category = std::forward_iterator_tag;
@@ -393,6 +440,7 @@ template <MatrixScalar T>
 #else
 template <typename T>
 #endif
+/** @brief Const forward iterator implementation for MatrixCSC stored entries. */
 class MatrixCSC<T>::ConstIterator {
 public:
     using iterator_category = std::forward_iterator_tag;

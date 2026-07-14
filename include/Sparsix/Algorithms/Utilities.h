@@ -1,11 +1,15 @@
 #pragma once
 
+#include <cmath>
+#include <cstddef>
+
 #include <Sparsix/MatrixCSR.h>
 #include <Sparsix/MatrixCSC.h>
 #include <Sparsix/Concepts/SparseMatrix.h>
 #include <Sparsix/Detail/Conversions.h>
 
 namespace sparsix {
+    /** @brief Checks whether a CSR matrix is square and symmetric. */
     template <typename T>
     bool is_symmetric(const MatrixCSR<T> &A) {
         size_t rows_count = A.rows_count();
@@ -28,11 +32,13 @@ namespace sparsix {
         return true;
     }
 
+    /** @brief Checks symmetry after converting a supported matrix format to CSR. */
     template <SparseMatrix Matrix>
     bool is_symmetric(const Matrix &A) {
         return is_symmetric(toCSR(A));
     }
 
+    /** @brief Returns the sum of diagonal elements of a CSR matrix. */
     template <typename T>
     T trace(const MatrixCSR<T> &A) {
         size_t rows_count = A.rows_count();
@@ -45,11 +51,13 @@ namespace sparsix {
         return sum;
     }
 
+    /** @brief Returns the trace after converting to CSR. */
     template <SparseMatrix Matrix>
     typename Matrix::value_type trace(const Matrix &A) {
         return trace(toCSR(A));
     }
 
+    /** @brief Returns the Frobenius norm of a CSR matrix. */
     template <typename T>
     real_type<T> frobenius_norm(const MatrixCSR<T> &A) {
         const auto &values = A.values();
@@ -62,11 +70,13 @@ namespace sparsix {
         return std::sqrt(sum);
     }
 
+    /** @brief Returns the Frobenius norm of any supported matrix format. */
     template <SparseMatrix Matrix>
     real_type<typename Matrix::value_type> frobenius_norm(const Matrix &A) {
         return frobenius_norm(toCSR(A));
     }
 
+    /** @brief Returns the maximum absolute column sum of a CSC matrix. */
     template <typename T>
     real_type<T> one_norm(const MatrixCSC<T> &A) {
         size_t cols_count = A.cols_count();
@@ -87,11 +97,13 @@ namespace sparsix {
         return max_sum;
     }
 
+    /** @brief Returns the one norm of any supported matrix format. */
     template <SparseMatrix Matrix>
     real_type<typename Matrix::value_type> one_norm(const Matrix &A) {
         return one_norm(toCSC(A));
     }
 
+    /** @brief Returns the maximum absolute row sum of a CSR matrix. */
     template <typename T>
     real_type<T> infinity_norm(const MatrixCSR<T> &A) {
         size_t rows_count = A.rows_count();
@@ -112,6 +124,7 @@ namespace sparsix {
         return max_sum;
     }
 
+    /** @brief Returns the infinity norm of any supported matrix format. */
     template <SparseMatrix Matrix>
     real_type<typename Matrix::value_type> infinity_norm(const Matrix &A) {
         return infinity_norm(toCSR(A));

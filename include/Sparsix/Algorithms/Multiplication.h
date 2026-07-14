@@ -1,3 +1,7 @@
+#include <stdexcept>
+#include <utility>
+#include <vector>
+
 #include <Sparsix/MatrixCOO.h>
 #include <Sparsix/MatrixCSC.h>
 #include <Sparsix/MatrixCSR.h>
@@ -5,6 +9,7 @@
 #include <Sparsix/Detail/Conversions.h>
 
 namespace sparsix {
+    /** @brief Multiplies a CSR matrix by a dense vector. */
     template <typename T>
     std::vector<T> multiply(const MatrixCSR<T> &A, const std::vector<T> &vector) {
         if (A.cols_count() != vector.size())
@@ -28,6 +33,7 @@ namespace sparsix {
         return result;
     }
 
+    /** @brief Multiplies any supported sparse matrix by a dense vector. */
     template <SparseMatrix Matrix>
     auto multiply(const Matrix &A, const std::vector<typename Matrix::value_type> &vector) {
         if (A.cols_count() != vector.size())
@@ -36,7 +42,7 @@ namespace sparsix {
         return multiply(toCSR(A), vector);
     }
 
-    // TODO переделать с алгоритмом Густавсона
+    /** @brief Multiplies CSR and CSC matrices, returning CSR storage. */
     template <typename T>
     MatrixCSR<T> multiply(const MatrixCSR<T> &A, const MatrixCSC<T> &B) {
         if (A.cols_count() != B.rows_count())
@@ -95,6 +101,7 @@ namespace sparsix {
                          std::move(values));
     }
 
+    /** @brief Multiplies any two supported sparse matrix formats. */
     template <SparseMatrix MatrixA, SparseMatrix MatrixB>
     auto multiply(const MatrixA &A, const MatrixB &B) {
         if (A.cols_count() != B.rows_count())
@@ -104,11 +111,13 @@ namespace sparsix {
     }
 }
 
+/** @brief Operator form of sparse matrix-vector multiplication. */
 template <SparseMatrix Matrix>
 auto operator*(const Matrix &A, const std::vector<typename Matrix::value_type> &vector) {
     return sparsix::multiply(A, vector);
 }
 
+/** @brief Operator form of sparse matrix-matrix multiplication. */
 template <SparseMatrix MatrixA, SparseMatrix MatrixB>
 auto operator*(const MatrixA &A, const MatrixB &B) {
     return sparsix::multiply(A, B);

@@ -1,10 +1,29 @@
+#pragma once
+
 #include <filesystem>
+#include <fstream>
+#include <iomanip>
+#include <limits>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <vector>
 
 #include <Sparsix/MatrixCOO.h>
 #include <Sparsix/Concepts/SparseMatrix.h>
 #include <Sparsix/IO/Detail.h>
 
 namespace sparsix {
+    /**
+     * @brief Writes a sparse matrix in Matrix Market coordinate format.
+     * @tparam Matrix Any supported sparse matrix type.
+     * @param matrix Matrix to serialize.
+     * @param path Destination `.mtx` file.
+     * @throws std::runtime_error If the destination cannot be opened.
+     *
+     * Complex values are written as real/imaginary pairs and all coordinates are
+     * converted to Matrix Market's one-based indexing.
+     */
     template <SparseMatrix Matrix>
     void write_matrix_market(const Matrix &matrix, const std::filesystem::path &path) {
         using T = typename Matrix::value_type;
@@ -24,6 +43,17 @@ namespace sparsix {
         }
     }
 
+    /**
+     * @brief Reads a Matrix Market coordinate matrix into a selected storage format.
+     * @tparam Matrix Target sparse matrix type, for example `MatrixCSR<double>`.
+     * @param path Source `.mtx` file.
+     * @return Parsed matrix in the requested format.
+     * @throws std::invalid_argument For unsupported or malformed content.
+     * @throws std::runtime_error If the source cannot be opened.
+     *
+     * The reader supports real, integer, complex and pattern fields and general,
+     * symmetric, skew-symmetric and Hermitian symmetry modes.
+     */
     template <SparseMatrix Matrix>
     Matrix read_matrix_market(const std::filesystem::path &path) {
         using T = typename Matrix::value_type;
@@ -86,11 +116,13 @@ namespace sparsix {
         return io_detail::build_matrix<Matrix>(rows, cols, std::move(triplets));
     }
 
+    /** @brief Reads a Matrix Market file into COO storage. */
     template <typename T>
     MatrixCOO<T> load_matrix_market(const std::filesystem::path &path) {
         return read_matrix_market<MatrixCOO<T>>(path);
     }
 
+    /** @brief Writes a matrix in Matrix Market format; alias for write_matrix_market(). */
     template <SparseMatrix Matrix>
     void save_matrix_market(const Matrix &matrix, const std::filesystem::path &path) {
         write_matrix_market(matrix, path);

@@ -1,15 +1,11 @@
 #pragma once
 
-#include <cctype>
-#include <complex>
 #include <filesystem>
+#include <fstream>
 #include <iomanip>
-#include <ios>
 #include <limits>
-#include <ostream>
 #include <sstream>
 #include <stdexcept>
-#include <type_traits>
 #include <vector>
 
 #include <Sparsix/Concepts/SparseMatrix.h>
@@ -17,6 +13,14 @@
 #include <Sparsix/IO/Detail.h>
 
 namespace sparsix {
+    /**
+     * @brief Writes a matrix as a CSV-like list of zero-based triplets.
+     * @param matrix Matrix to serialize.
+     * @param path Destination file.
+     *
+     * The first line is `rows,cols,nnz`; real entries use `row,col,value` and
+     * complex entries use `row,col,real,imag`.
+     */
     template <SparseMatrix Matrix>
     void write_triplets_csv(const Matrix &matrix, const std::filesystem::path &path) {
         std::ofstream output(path);
@@ -36,6 +40,13 @@ namespace sparsix {
         }
     }
 
+    /**
+     * @brief Reads a CSV-like triplet file into a selected sparse matrix format.
+     * @tparam Matrix Target sparse matrix type.
+     * @param path Source file written by write_triplets_csv().
+     * @return Parsed matrix.
+     * @throws std::invalid_argument For malformed dimensions, coordinates or values.
+     */
     template <SparseMatrix Matrix>
     Matrix read_triplets_csv(const std::filesystem::path &path) {
         using T = typename Matrix::value_type;
@@ -66,11 +77,13 @@ namespace sparsix {
         return io_detail::build_matrix<Matrix>(rows, cols, std::move(triplets));
     }
 
+    /** @brief Reads a CSV-like triplet file into COO storage. */
     template <typename T>
     MatrixCOO<T> load_triplets_csv(const std::filesystem::path &path) {
         return read_triplets_csv<MatrixCOO<T>>(path);
     }
 
+    /** @brief Writes a matrix as CSV-like triplets; alias for write_triplets_csv(). */
     template <SparseMatrix Matrix>
     void save_triplets_csv(const Matrix &matrix, const std::filesystem::path &path) {
         write_triplets_csv(matrix, path);

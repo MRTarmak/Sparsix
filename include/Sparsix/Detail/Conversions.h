@@ -1,11 +1,13 @@
 #pragma once
 
+#include <utility>
+#include <vector>
+
 #include <Sparsix/MatrixCOO.h>
 #include <Sparsix/MatrixCSR.h>
 #include <Sparsix/MatrixCSC.h>
 
-// CSR to COO
-
+/** @brief Converts CSR storage to an owning COO matrix. */
 template <typename T>
 MatrixCOO<T> toCOO(const MatrixCSR<T> &csr) {
     std::vector<Triplet<T>> triplets;
@@ -24,13 +26,13 @@ MatrixCOO<T> toCOO(const MatrixCSR<T> &csr) {
     return MatrixCOO<T>(csr.rows_count(), csr.cols_count(), std::move(triplets));
 }
 
+/** @brief Converts an rvalue CSR matrix to COO without modifying the source. */
 template <typename T>
 MatrixCOO<T> toCOO(MatrixCSR<T> &&csr) {
     return toCOO(static_cast<const MatrixCSR<T>&>(csr));
 }
 
-// CSC to COO
-
+/** @brief Converts CSC storage to an owning COO matrix. */
 template <typename T>
 MatrixCOO<T> toCOO(const MatrixCSC<T> &csc) {
     std::vector<Triplet<T>> triplets;
@@ -49,72 +51,73 @@ MatrixCOO<T> toCOO(const MatrixCSC<T> &csc) {
     return MatrixCOO<T>(csc.rows_count(), csc.cols_count(), std::move(triplets));
 }
 
+/** @brief Converts an rvalue CSC matrix to COO without modifying the source. */
 template <typename T>
 MatrixCOO<T> toCOO(MatrixCSC<T> &&csc) {
     return toCOO(static_cast<const MatrixCSC<T>&>(csc));
 }
 
-// COO to CSR
-
+/** @brief Converts COO storage to CSR. */
 template <typename T>
 MatrixCSR<T> toCSR(const MatrixCOO<T> &coo) {
     return MatrixCSR<T>(coo);
 }
 
+/** @brief Converts an rvalue COO matrix to CSR without modifying the source. */
 template <typename T>
 MatrixCSR<T> toCSR(MatrixCOO<T> &&coo) {
     return toCSR(static_cast<const MatrixCOO<T>&>(coo));
 }
 
-// CSC to CSR
-
+/** @brief Converts CSC storage to CSR. */
 template <typename T>
 MatrixCSR<T> toCSR(const MatrixCSC<T> &csc) {
     return MatrixCSR<T>(toCOO(csc));
 }
 
+/** @brief Converts an rvalue CSC matrix to CSR without modifying the source. */
 template <typename T>
 MatrixCSR<T> toCSR(MatrixCSC<T> &&csc) {
     return toCSR(static_cast<const MatrixCSC<T>&>(csc));
 }
 
-
-// COO to CSC
-
+/** @brief Converts COO storage to CSC. */
 template <typename T>
 MatrixCSC<T> toCSC(const MatrixCOO<T> &coo) {
     return MatrixCSC<T>(coo);
 }
 
+/** @brief Converts an rvalue COO matrix to CSC without modifying the source. */
 template <typename T>
 MatrixCSC<T> toCSC(MatrixCOO<T> &&coo) {
     return toCSC(static_cast<const MatrixCOO<T>&>(coo));
 }
 
-// CSR to CSC
-
+/** @brief Converts CSR storage to CSC. */
 template <typename T>
 MatrixCSC<T> toCSC(const MatrixCSR<T> &csr) {
     return MatrixCSC<T>(toCOO(csr));
 }
 
+/** @brief Converts an rvalue CSR matrix to CSC without modifying the source. */
 template <typename T>
 MatrixCSC<T> toCSC(MatrixCSR<T> &&csr) {
     return toCSC(static_cast<const MatrixCSR<T>&>(csr));
 }
 
-// Identities
-
+/** @brief Returns a COO matrix unchanged. */
 template<typename T>
 const MatrixCOO<T>& toCOO(const MatrixCOO<T>& coo) {
     return coo;
 }
 
+/** @brief Returns a CSR matrix unchanged. */
 template<typename T>
 const MatrixCSR<T>& toCSR(const MatrixCSR<T>& csr) {
     return csr;
 }
 
+/** @brief Returns a CSC matrix unchanged. */
 template<typename T>
 const MatrixCSC<T>& toCSC(const MatrixCSC<T>& csc) {
     return csc;

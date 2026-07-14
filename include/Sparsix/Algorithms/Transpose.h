@@ -1,3 +1,7 @@
+#include <cstddef>
+#include <utility>
+#include <vector>
+
 #include <Sparsix/MatrixCOO.h>
 #include <Sparsix/MatrixCSC.h>
 #include <Sparsix/MatrixCSR.h>
@@ -5,6 +9,7 @@
 #include <Sparsix/Detail/Conversions.h>
 
 namespace sparsix {
+    /** @brief Transposes a CSR matrix into CSC storage. */
     template <typename T>
     MatrixCSC<T> transpose(const MatrixCSR<T> &A) {
         const size_t rows_count = A.rows_count();
@@ -46,6 +51,7 @@ namespace sparsix {
         );
     }
 
+    /** @brief Transposes a CSC matrix into CSR storage. */
     template <typename T>
     MatrixCSR<T> transpose(const MatrixCSC<T> &A) {
         const size_t rows_count = A.rows_count();
@@ -87,6 +93,7 @@ namespace sparsix {
         );
     }
 
+    /** @brief Transposes a COO matrix into COO storage. */
     template <typename T>
     MatrixCOO<T> transpose(const MatrixCOO<T> &A) {
         std::vector<Triplet<T>> triplets;

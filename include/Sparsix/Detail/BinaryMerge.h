@@ -1,6 +1,20 @@
+#pragma once
+
+#include <optional>
+#include <stdexcept>
+#include <utility>
+#include <vector>
+
 #include <Sparsix/MatrixCSR.h>
 
 namespace detail {
+    /**
+     * @brief Merges two equal-sized CSR matrices row by row.
+     * @param on_equal Produces an optional value for coordinates present in both matrices.
+     * @param on_left Produces an optional value for a left-only coordinate.
+     * @param on_right Produces an optional value for a right-only coordinate.
+     * @return CSR matrix containing callback-produced values.
+     */
     template <typename T>
     MatrixCSR<T> binary_merge(const MatrixCSR<T> &A, const MatrixCSR<T> &B, 
                               auto on_equal, auto on_left, auto on_right) {

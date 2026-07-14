@@ -11,7 +11,16 @@
 #include <Sparsix/Algorithms/VectorAlgorithms.h>
 
 namespace sparsix {
-    // Precondition: A must be symmetric positive definite.
+    /**
+     * @brief Solves a symmetric positive-definite linear system with conjugate gradients.
+     * @param A Symmetric positive-definite coefficient matrix in CSR format.
+     * @param b Right-hand-side vector.
+     * @param x0 Optional initial solution estimate.
+     * @param max_iterations Maximum number of iterations.
+     * @param tolerance Target Euclidean residual norm.
+     * @return Solution, residual, iteration count and convergence state.
+     * @throws std::invalid_argument If A is not symmetric or vector sizes do not match.
+     */
     template <typename T>
     SolverResult<T> cg(
         const MatrixCSR<T> &A,

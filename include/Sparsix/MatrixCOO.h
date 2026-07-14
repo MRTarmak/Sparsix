@@ -25,53 +25,74 @@ template <MatrixScalar T>
 #else
 template <typename T>
 #endif
+/**
+ * @brief Sparse matrix stored as coordinate triplets (COO).
+ * @tparam T Arithmetic or complex value type.
+ *
+ * Public operations create matrices, access and mutate stored non-zero values,
+ * reshape storage, iterate triplets and inspect the coordinate arrays. Entries
+ * created from triplets are validated for bounds, duplicate coordinates and zeros.
+ */
 class MatrixCOO {
 public:
     static_assert(is_matrix_scalar_v<T>, "MatrixCOO requires an arithmetic or std::complex value type.");
 
+    /** @brief Value type stored by the matrix. */
     using value_type = T;
 
+    /** @brief Forward iterator over mutable COO entries. */
     class Iterator;
+    /** @brief Forward iterator over read-only COO entries. */
     class ConstIterator;
 
     using iterator = Iterator;
     using const_iterator = ConstIterator;
 
+    /** @brief Returns an iterator to the first stored triplet. */
     iterator begin() {
         return iterator(this, 0, 0);
     }
 
+    /** @brief Returns the past-the-end iterator. */
     iterator end() {
         return iterator(this, values_.size(), rows_count_);
     }
 
+    /** @brief Returns a const iterator to the first stored triplet. */
     const_iterator begin() const {
         return const_iterator(this, 0, 0);
     }
 
+    /** @brief Returns the const past-the-end iterator. */
     const_iterator end() const {
         return const_iterator(this, values_.size(), rows_count_);
     }
 
+    /** @brief Returns a const iterator to the first stored triplet. */
     const_iterator cbegin() const {
         return begin();
     }
 
+    /** @brief Returns the const past-the-end iterator. */
     const_iterator cend() const {
         return end();
     }
 
+    /** @brief Constructs an empty 0-by-0 COO matrix. */
     explicit MatrixCOO() : rows_(), cols_(), values_(), rows_count_(0), cols_count_(0), sorted_(true) {}
 
+    /** @brief Constructs an empty COO matrix with the requested dimensions. */
     explicit MatrixCOO(size_t rows_count, size_t cols_count)
         : rows_(), cols_(), values_(), rows_count_(rows_count), cols_count_(cols_count), sorted_(true) {}
 
+    /** @brief Constructs a COO matrix from owned, validated coordinate triplets. */
     explicit MatrixCOO(size_t rows_count, size_t cols_count, std::vector<Triplet<T>> triplets) {
         detail::prepare_triplets(rows_count, cols_count, triplets);
 
         initialize(rows_count, cols_count, triplets.begin(), triplets.end());
     }
 
+    /** @brief Constructs a COO matrix from an initializer list of triplets. */
     explicit MatrixCOO(size_t rows_count, size_t cols_count, std::initializer_list<Triplet<T>> triplets) {
         std::vector<Triplet<T>> tmp(triplets);
         detail::prepare_triplets(rows_count, cols_count, tmp);
@@ -79,6 +100,7 @@ public:
         initialize(rows_count, cols_count, tmp.begin(), tmp.end());
     }
 
+    /** @brief Constructs a COO matrix from dense rows, dropping values at the threshold. */
     explicit MatrixCOO(const std::vector<std::vector<T>> &matrix, T threshold = T{}) {
         auto triplets = detail::triplets_from_dense(matrix, threshold);
 
@@ -88,6 +110,7 @@ public:
         initialize(rows_count, cols_count, triplets.begin(), triplets.end());
     }
 
+    /** @brief Creates a square diagonal matrix with value on its diagonal. */
     static MatrixCOO<T> create_identity(size_t size, T value = T{1}) {
         std::vector<Triplet<T>> triplets;
         triplets.reserve(size);
@@ -97,6 +120,7 @@ public:
         return MatrixCOO<T>(size, size, triplets);
     }
 
+    /** @brief Creates a square matrix from the supplied diagonal values. */
     static MatrixCOO<T> create_diagonal(size_t size, const std::vector<T> &values) {
         if (values.size() != size) {
             throw std::invalid_argument("Values size must match the specified size.");
@@ -110,6 +134,7 @@ public:
         return MatrixCOO<T>(size, size, triplets);
     }
 
+    /** @brief Creates a random sparse matrix with a requested density and value range. */
     static MatrixCOO<T> create_random(size_t rows_count, size_t cols_count, 
                                       double density, T min_value, T max_value) {
         if (rows_count == 0 || cols_count == 0) {
@@ -212,6 +237,7 @@ public:
 
     /// ColumnOrder is intended for internal use when converting COO -> CSC.
     /// After sorting in ColumnOrder, row-based search optimizations are disabled.
+    /** @brief Sorts triplets by row or column major order. */
     void sort(MajorOrder major_order = MajorOrder::RowOrder) {
         if (sorted_ && major_order == MajorOrder::RowOrder) {
             return;
@@ -259,6 +285,7 @@ public:
         sorted_ = (major_order == MajorOrder::RowOrder);
     };
 
+    /** @brief Returns the value at a coordinate, or zero when it is not stored. */
     T at(size_t row, size_t col) const {
         check_bounds(row, col);
         auto index = find_index_unchecked(row, col);
@@ -268,10 +295,12 @@ public:
         return T{};
     }
 
+    /** @brief Shorthand for at(row, col). */
     T operator()(size_t row, size_t col) const {
         return at(row, col);
     }
 
+    /** @brief Changes matrix dimensions; force permits truncation of stored entries. */
     void reshape(size_t rows_count, size_t cols_count, bool force = false) {
         if (rows_count == 0 || cols_count == 0) {
             throw std::invalid_argument("Matrix dimensions must be greater than zero.");
@@ -302,6 +331,7 @@ public:
         }
     }
 
+    /** @brief Inserts a new non-zero value at an empty coordinate. */
     void insert(size_t row, size_t col, const T &value) {
         check_bounds(row, col);
 
@@ -322,6 +352,7 @@ public:
         sorted_ = false;
     }
 
+    /** @brief Replaces an existing stored non-zero value. */
     void set(size_t row, size_t col, const T &value) {
         check_bounds(row, col);
 
@@ -340,6 +371,7 @@ public:
                                                 Use insert() to add it.");
     }
 
+    /** @brief Returns true when a coordinate has a stored entry. */
     bool contains(size_t row, size_t col) const {
         check_bounds(row, col);
         if (find_index_unchecked(row, col))
@@ -347,6 +379,7 @@ public:
         return false;
     }
 
+    /** @brief Erases the stored entry at a coordinate, if present. */
     void erase(size_t row, size_t col) {
         check_bounds(row, col);
         auto index = find_index_unchecked(row, col);
@@ -358,12 +391,14 @@ public:
         }
     }
 
+    /** @brief Reserves capacity for at least nnz stored entries. */
     void reserve(size_t nnz) {
         rows_.reserve(nnz);
         cols_.reserve(nnz);
         values_.reserve(nnz);
     }
 
+    /** @brief Removes all stored entries while preserving dimensions. */
     void clear() {
         rows_.clear();
         cols_.clear();
@@ -372,30 +407,37 @@ public:
         sorted_ = true;
     }
 
+    /** @brief Returns the stored zero-based row indices. */
     const std::vector<size_t> &rows() const {
         return rows_;
     }
 
+    /** @brief Returns the stored zero-based column indices. */
     const std::vector<size_t> &cols() const {
         return cols_;
     }
 
+    /** @brief Returns the stored non-zero values. */
     const std::vector<T> &values() const {
         return values_;
     }
 
+    /** @brief Returns the number of rows. */
     size_t rows_count() const {
         return rows_count_;
     }
 
+    /** @brief Returns the number of columns. */
     size_t cols_count() const {
         return cols_count_;
     }
 
+    /** @brief Reports whether triplets are sorted in row-major order. */
     bool sorted() const {
         return sorted_;
     }
 
+    /** @brief Returns the number of stored non-zero entries. */
     size_t non_zero_count() const {
         return values_.size();
     }
@@ -479,6 +521,7 @@ template <MatrixScalar T>
 #else
 template <typename T>
 #endif
+/** @brief Forward iterator implementation for MatrixCOO stored entries. */
 class MatrixCOO<T>::Iterator {
 public:
     using iterator_category = std::forward_iterator_tag;
@@ -533,6 +576,7 @@ template <MatrixScalar T>
 #else
 template <typename T>
 #endif
+/** @brief Const forward iterator implementation for MatrixCOO stored entries. */
 class MatrixCOO<T>::ConstIterator {
 public:
     using iterator_category = std::forward_iterator_tag;

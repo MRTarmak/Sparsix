@@ -1,11 +1,19 @@
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
+#include <stdexcept>
 #include <vector>
 
 #include <Sparsix/Core/MajorOrder.h>
+#include <Sparsix/Core/Triplet.h>
 
 namespace detail {
+    /**
+     * @brief Validates, removes zero values and orders construction triplets.
+     * @throws std::invalid_argument For invalid dimensions or duplicate coordinates.
+     * @throws std::out_of_range For coordinates outside the matrix dimensions.
+     */
     template <typename T>
     void prepare_triplets(size_t rows_count,
                           size_t cols_count,

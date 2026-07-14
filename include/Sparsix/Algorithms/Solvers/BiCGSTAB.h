@@ -11,6 +11,16 @@
 #include <Sparsix/Algorithms/VectorAlgorithms.h>
 
 namespace sparsix {
+    /**
+     * @brief Solves a general square linear system with BiCGSTAB.
+     * @param A Coefficient matrix in CSR format.
+     * @param b Right-hand-side vector.
+     * @param x0 Optional initial solution estimate.
+     * @param max_iterations Maximum number of iterations.
+     * @param tolerance Target Euclidean residual norm.
+     * @return Solution, residual, iteration count and convergence state.
+     * @throws std::invalid_argument If vector sizes do not match A.
+     */
     template <typename T>
     SolverResult<T> bicgstab(
         const MatrixCSR<T> &A,

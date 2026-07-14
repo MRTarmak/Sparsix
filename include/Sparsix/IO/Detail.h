@@ -1,23 +1,36 @@
 #pragma once
 
 #include <algorithm>
+#include <cctype>
+#include <complex>
+#include <concepts>
+#include <cstddef>
 #include <fstream>
+#include <istream>
+#include <ostream>
+#include <sstream>
+#include <stdexcept>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include <Sparsix/Concepts/SparseMatrix.h>
 #include <Sparsix/Detail/Conversions.h>
 
 namespace sparsix::io_detail {
+    /** @brief Converts an ASCII string to lowercase for case-insensitive format parsing. */
     inline std::string lowercase(std::string value) {
         std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
         return value;
     }
 
+    /** @brief Replaces CSV separators with spaces for stream-based parsing. */
     inline std::string comma_to_space(std::string value) {
         std::replace(value.begin(), value.end(), ',', ' ');
         return value;
     }
 
+    /** @brief Reads one scalar or complex value from a formatted input stream. */
     template <typename T>
     T read_value(std::istringstream &input, bool complex_value) {
         if constexpr (is_std_complex_v<T>) {
@@ -37,6 +50,7 @@ namespace sparsix::io_detail {
         }
     }
 
+    /** @brief Writes one scalar or complex value in a portable text representation. */
     template <typename T>
     void write_value(std::ostream &output, const T &value) {
         if constexpr (is_std_complex_v<T>)
@@ -45,6 +59,7 @@ namespace sparsix::io_detail {
             output << value;
     }
 
+    /** @brief Returns the next non-empty, non-comment line or throws at end of input. */
     inline std::string next_data_line(std::istream &input, char comment_marker) {
         std::string line;
         while (std::getline(input, line)) {
@@ -55,6 +70,7 @@ namespace sparsix::io_detail {
         throw std::runtime_error("Unexpected end of matrix file.");
     }
 
+    /** @brief Constructs the requested sparse storage format from validated triplets. */
     template <SparseMatrix Matrix>
     Matrix build_matrix(size_t rows, size_t cols, std::vector<Triplet<typename Matrix::value_type>> triplets) {
         const auto coo = MatrixCOO<typename Matrix::value_type>(rows, cols, std::move(triplets));

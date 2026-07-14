@@ -1,8 +1,17 @@
+#pragma once
+
+#include <algorithm>
+#include <cstddef>
 #include <ostream>
 
 #include <Sparsix/Concepts/SparseMatrix.h>
 #include <Sparsix/Detail/Conversions.h>
 
+/**
+ * @brief Writes a concise diagnostic representation of a sparse matrix.
+ * @details The output contains dimensions, number of stored entries and up to five
+ * `(row, column)=value` triplets.
+ */
 template <SparseMatrix Matrix>
 std::ostream &operator<<(std::ostream &output, const Matrix &matrix) {
     const auto &coo = toCOO(matrix);

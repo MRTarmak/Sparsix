@@ -1,5 +1,12 @@
 #pragma once
 
+#include <algorithm>
+#include <cstddef>
+#include <initializer_list>
+#include <iterator>
+#include <optional>
+#include <stdexcept>
+#include <utility>
 #include <vector>
 
 #include <Sparsix/Concepts/MatrixScalar.h>
@@ -13,53 +20,74 @@ template <MatrixScalar T>
 #else
 template <typename T>
 #endif
+/**
+ * @brief Sparse matrix stored in compressed sparse row (CSR) format.
+ * @tparam T Arithmetic or complex value type.
+ *
+ * The public API provides construction from dense data or COO triplets, random
+ * access, row-oriented mutation, iteration and direct read-only access to CSR
+ * arrays (`row_ptr`, `col_indices`, `values`).
+ */
 class MatrixCSR {
 public:
     static_assert(is_matrix_scalar_v<T>, "MatrixCSR requires an arithmetic or std::complex value type.");
 
+    /** @brief Value type stored by the matrix. */
     using value_type = T;
 
+    /** @brief Forward iterator over mutable CSR entries. */
     class Iterator;
+    /** @brief Forward iterator over read-only CSR entries. */
     class ConstIterator;
 
     using iterator = Iterator;
     using const_iterator = ConstIterator;
 
+    /** @brief Returns an iterator to the first stored entry. */
     iterator begin() {
         return iterator(this, 0, 0);
     }
 
+    /** @brief Returns the past-the-end iterator. */
     iterator end() {
         return iterator(this, values_.size(), rows_count_);
     }
 
+    /** @brief Returns a const iterator to the first stored entry. */
     const_iterator begin() const {
         return const_iterator(this, 0, 0);
     }
 
+    /** @brief Returns the const past-the-end iterator. */
     const_iterator end() const {
         return const_iterator(this, values_.size(), rows_count_);
     }
 
+    /** @brief Returns a const iterator to the first stored entry. */
     const_iterator cbegin() const {
         return begin();
     }
 
+    /** @brief Returns the const past-the-end iterator. */
     const_iterator cend() const {
         return end();
     }
 
+    /** @brief Constructs an empty 0-by-0 CSR matrix. */
     explicit MatrixCSR() : col_indices_(), row_ptr_(1, 0), values_(), rows_count_(0), cols_count_(0) {}
 
+    /** @brief Constructs an empty CSR matrix with the requested dimensions. */
     explicit MatrixCSR(size_t rows_count, size_t cols_count) 
         : col_indices_(), row_ptr_(rows_count + 1, 0), values_(), rows_count_(rows_count), cols_count_(cols_count) {}
 
+    /** @brief Constructs a CSR matrix from validated coordinate triplets. */
     explicit MatrixCSR(size_t rows_count, size_t cols_count, const std::vector<Triplet<T>> &triplets) {
         detail::prepare_triplets(rows_count, cols_count, triplets);
 
         initialize(rows_count, cols_count, triplets.begin(), triplets.end());
     }
 
+    /** @brief Constructs a CSR matrix from an initializer list of triplets. */
     explicit MatrixCSR(size_t rows_count, size_t cols_count, std::initializer_list<Triplet<T>> triplets) {
         std::vector<Triplet<T>> tmp(triplets);
         detail::prepare_triplets(rows_count, cols_count, tmp);
@@ -67,6 +95,7 @@ public:
         initialize(rows_count, cols_count, tmp.begin(), tmp.end());
     }
 
+    /** @brief Constructs a CSR matrix from dense rows, dropping values at the threshold. */
     explicit MatrixCSR(const std::vector<std::vector<T>> &matrix, T threshold = T{}) {
         auto triplets = detail::triplets_from_dense(matrix, threshold);
 
@@ -76,6 +105,7 @@ public:
         initialize(rows_count, cols_count, triplets.begin(), triplets.end());
     }
 
+    /** @brief Converts a COO matrix to CSR storage. */
     explicit MatrixCSR(MatrixCOO<T> coo) {
         if (!coo.sorted()) {
             coo.sort();
@@ -96,6 +126,7 @@ public:
             row_ptr_[i] += row_ptr_[i - 1];
     }
 
+    /** @brief Constructs CSR storage by taking ownership of raw CSR arrays. */
     explicit MatrixCSR(size_t rows_count, size_t cols_count, 
                        std::vector<size_t> &&col_indices, 
                        std::vector<size_t> &&row_ptr, 
@@ -106,6 +137,7 @@ public:
                   row_ptr_(std::move(row_ptr)), 
                   values_(std::move(values)) {}
 
+    /** @brief Constructs CSR storage from index arrays and an owned value array. */
     explicit MatrixCSR(size_t rows_count, size_t cols_count,
                        const std::vector<size_t> &col_indices,
                        const std::vector<size_t> &row_ptr,
@@ -116,6 +148,7 @@ public:
                   row_ptr_(row_ptr), 
                   values_(std::move(values)) {}
 
+    /** @brief Returns the value at a coordinate, or zero when it is not stored. */
     T at(size_t row, size_t col) const {
         check_bounds(row, col);
         auto index = find_index_unchecked(row, col);
@@ -125,10 +158,12 @@ public:
         return T{};
     }
 
+    /** @brief Shorthand for at(row, col). */
     T operator()(size_t row, size_t col) const {
         return at(row, col);
     }
 
+    /** @brief Changes matrix dimensions; force permits truncation of stored entries. */
     void reshape(size_t rows_count, size_t cols_count, bool force = false) {
         if (rows_count == 0 || cols_count == 0) {
             throw std::invalid_argument("Matrix dimensions must be greater than zero.");
@@ -178,6 +213,7 @@ public:
         }
     }
 
+    /** @brief Inserts a new non-zero value at an empty coordinate. */
     void insert(size_t row, size_t col, const T &value) {
         check_bounds(row, col);
 
@@ -204,6 +240,7 @@ public:
             row_ptr_[i]++;
     }
 
+    /** @brief Replaces an existing stored non-zero value. */
     void set(size_t row, size_t col, const T &value) {
         check_bounds(row, col);
 
@@ -222,6 +259,7 @@ public:
                                                 Use insert() to add it.");
     }
 
+    /** @brief Returns true when a coordinate has a stored entry. */
     bool contains(size_t row, size_t col) const {
         check_bounds(row, col);
         if (find_index_unchecked(row, col))
@@ -229,6 +267,7 @@ public:
         return false;
     }
 
+    /** @brief Erases the stored entry at a coordinate, if present. */
     void erase(size_t row, size_t col) {
         check_bounds(row, col);
 
@@ -243,37 +282,45 @@ public:
             row_ptr_[i]--;
     }
 
+    /** @brief Reserves capacity for at least nnz stored entries. */
     void reserve(size_t nnz) {
         col_indices_.reserve(nnz);
         values_.reserve(nnz);
     }
 
+    /** @brief Removes all stored entries while preserving dimensions. */
     void clear() {
         col_indices_.clear();
         values_.clear();
         row_ptr_.assign(rows_count_ + 1, 0);
     }
 
+    /** @brief Returns the number of rows. */
     size_t rows_count() const {
         return rows_count_;
     }
 
+    /** @brief Returns the number of columns. */
     size_t cols_count() const {
         return cols_count_;
     }
 
+    /** @brief Returns the CSR column-index array. */
     const std::vector<size_t> &col_indices() const {
         return col_indices_;
     }
 
+    /** @brief Returns the CSR row-offset array. */
     const std::vector<size_t> &row_ptr() const {
         return row_ptr_;
     }
 
+    /** @brief Returns the stored non-zero values. */
     const std::vector<T> &values() const {
         return values_;
     }
 
+    /** @brief Returns the number of stored non-zero entries. */
     size_t non_zero_count() const {
         return values_.size();
     }
@@ -346,6 +393,7 @@ template <MatrixScalar T>
 #else
 template <typename T>
 #endif
+/** @brief Forward iterator implementation for MatrixCSR stored entries. */
 class MatrixCSR<T>::Iterator {
 public:
     using iterator_category = std::forward_iterator_tag;
@@ -404,6 +452,7 @@ template <MatrixScalar T>
 #else
 template <typename T>
 #endif
+/** @brief Const forward iterator implementation for MatrixCSR stored entries. */
 class MatrixCSR<T>::ConstIterator {
 public:
     using iterator_category = std::forward_iterator_tag;
