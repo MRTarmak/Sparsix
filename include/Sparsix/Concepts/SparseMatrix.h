@@ -1,5 +1,7 @@
 #pragma once
 
+namespace sparsix {
+
 /** @brief Constraint for matrix types exposing dimensions and a value_type. */
 template<typename M>
 concept SparseMatrix = requires(M m) {
@@ -8,3 +10,5 @@ concept SparseMatrix = requires(M m) {
     m.rows_count();
     m.cols_count();
 };
+
+} // namespace sparsix

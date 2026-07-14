@@ -2,6 +2,8 @@
 
 #include <random>
 
+namespace sparsix::detail {
+
 /** @brief Owns the shared random engine used by sparse matrix generators. */
 class Randomizer {
 public:
@@ -11,3 +13,5 @@ public:
         return gen;
     }
 };
+
+} // namespace sparsix::detail

@@ -4,8 +4,10 @@
 #include <cstddef>
 #include <ostream>
 
+#include <Sparsix/Conversions.h>
 #include <Sparsix/Concepts/SparseMatrix.h>
-#include <Sparsix/Detail/Conversions.h>
+
+namespace sparsix {
 
 /**
  * @brief Writes a concise diagnostic representation of a sparse matrix.
@@ -30,3 +32,5 @@ std::ostream &operator<<(std::ostream &output, const Matrix &matrix) {
         output << ", ...";
     return output << "]";
 }
+
+} // namespace sparsix

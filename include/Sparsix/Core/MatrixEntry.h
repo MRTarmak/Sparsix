@@ -2,6 +2,8 @@
 
 #include <cstddef>
 
+namespace sparsix {
+
 /** @brief Mutable-looking value object returned by sparse matrix iterators. */
 template<typename T>
 struct MatrixEntry {
@@ -23,3 +25,5 @@ struct ConstMatrixEntry {
     /** @brief Read-only reference to the stored value. */
     const T &value;
 };
+
+} // namespace sparsix

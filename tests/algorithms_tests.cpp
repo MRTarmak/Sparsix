@@ -6,15 +6,17 @@
 #include <Sparsix/Algorithms/Arithmetic.h>
 #include <Sparsix/Algorithms/Multiplication.h>
 
+using namespace sparsix;
+
 namespace {
     template <typename MatrixType>
     void expect_dense_matrix_eq(const MatrixType &matrix, const std::vector<std::vector<typename MatrixType::value_type>> &expected) {
         ASSERT_EQ(matrix.rows_count(), expected.size());
         ASSERT_EQ(matrix.cols_count(), expected.empty() ? 0U : expected.front().size());
 
-        for (size_t row = 0; row < expected.size(); row++) {
+        for (size_t row = 0; row < expected.size(); ++row) {
             ASSERT_EQ(expected[row].size(), matrix.cols_count());
-            for (size_t col = 0; col < expected[row].size(); col++) {
+            for (size_t col = 0; col < expected[row].size(); ++col) {
                 EXPECT_EQ(matrix(row, col), expected[row][col]) << "Mismatch at (" << row << ", " << col << ")";
             }
         }

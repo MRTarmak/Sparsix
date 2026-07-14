@@ -18,7 +18,9 @@
 #include <Sparsix/Core/Triplet.h>
 #include <Sparsix/Detail/PrepareTriplets.h>
 #include <Sparsix/Detail/TripletsFromDense.h>
-#include <Sparsix/Utils/Randomizer.h>
+#include <Sparsix/Detail/Randomizer.h>
+
+namespace sparsix {
 
 #if defined(__cpp_concepts) && __cpp_concepts >= 201907L
 template <MatrixScalar T>
@@ -114,7 +116,7 @@ public:
     static MatrixCOO<T> create_identity(size_t size, T value = T{1}) {
         std::vector<Triplet<T>> triplets;
         triplets.reserve(size);
-        for (size_t i = 0; i < size; i++) {
+        for (size_t i = 0; i < size; ++i) {
             triplets.push_back({i, i, value});
         }
         return MatrixCOO<T>(size, size, triplets);
@@ -128,14 +130,14 @@ public:
 
         std::vector<Triplet<T>> triplets;
         triplets.reserve(size);
-        for (size_t i = 0; i < size; i++) {
+        for (size_t i = 0; i < size; ++i) {
             triplets.push_back({i, i, values[i]});
         }
         return MatrixCOO<T>(size, size, triplets);
     }
 
     /** @brief Creates a random sparse matrix with a requested density and value range. */
-    static MatrixCOO<T> create_random(size_t rows_count, size_t cols_count, 
+    static MatrixCOO<T> create_random(size_t rows_count, size_t cols_count,
                                       double density, T min_value, T max_value) {
         if (rows_count == 0 || cols_count == 0) {
             throw std::invalid_argument("Matrix dimensions must be greater than zero.");
@@ -161,7 +163,7 @@ public:
         std::vector<size_t> positions(total_count);
         std::iota(positions.begin(), positions.end(), size_t{0});
 
-        auto &generator = Randomizer::generator();
+        auto &generator = detail::Randomizer::generator();
         std::shuffle(positions.begin(), positions.end(), generator);
 
         auto value_is_zero = [](const T &value) {
@@ -173,7 +175,7 @@ public:
         };
 
         auto make_matrix = [&](auto make_value) -> MatrixCOO<T> {
-            for (size_t i = 0; i < non_zero_count; i++) {
+            for (size_t i = 0; i < non_zero_count; ++i) {
                 const size_t linear_index = positions[i];
                 const size_t row = linear_index / cols_count;
                 const size_t col = linear_index % cols_count;
@@ -235,11 +237,9 @@ public:
         }
     }
 
-    /// ColumnOrder is intended for internal use when converting COO -> CSC.
-    /// After sorting in ColumnOrder, row-based search optimizations are disabled.
     /** @brief Sorts triplets by row or column major order. */
-    void sort(MajorOrder major_order = MajorOrder::RowOrder) {
-        if (sorted_ && major_order == MajorOrder::RowOrder) {
+    void sort() {
+        if (sorted_) {
             return;
         }
         if (values_.size() <= 1) {
@@ -250,19 +250,12 @@ public:
         std::vector<size_t> order(values_.size());
         std::iota(order.begin(), order.end(), size_t{0});
 
-        auto cmp = [&](auto a, auto b) {
-            if (major_order == MajorOrder::RowOrder) {
-                if (rows_[a] != rows_[b])
-                    return rows_[a] < rows_[b];
-                return cols_[a] < cols_[b];
-            } else {
-                if (cols_[a] != cols_[b])
-                    return cols_[a] < cols_[b];
+        std::sort(order.begin(), order.end(),
+        [&](auto a, auto b) {
+            if (rows_[a] != rows_[b])
                 return rows_[a] < rows_[b];
-            }
-        };
-
-        std::sort(order.begin(), order.end(), cmp);
+            return cols_[a] < cols_[b];
+        });
 
         std::vector<size_t> new_rows;
         std::vector<size_t> new_cols;
@@ -272,7 +265,7 @@ public:
         new_cols.reserve(cols_.size());
         new_values.reserve(values_.size());
 
-        for (size_t i = 0; i < order.size(); i++) {
+        for (size_t i = 0; i < order.size(); ++i) {
             new_rows.push_back(rows_[order[i]]);
             new_cols.push_back(cols_[order[i]]);
             new_values.push_back(values_[order[i]]);
@@ -282,7 +275,7 @@ public:
         cols_ = std::move(new_cols);
         values_ = std::move(new_values);
 
-        sorted_ = (major_order == MajorOrder::RowOrder);
+        sorted_ = true;
     };
 
     /** @brief Returns the value at a coordinate, or zero when it is not stored. */
@@ -313,7 +306,7 @@ public:
             } else {
                 std::vector<Triplet<T>> triplets;
                 triplets.reserve(values_.size());
-                for (size_t i = 0; i < values_.size(); i++) {
+                for (size_t i = 0; i < values_.size(); ++i) {
                     if (rows_[i] < rows_count && cols_[i] < cols_count) {
                         triplets.emplace_back(rows_[i], cols_[i], values_[i]);
                     }
@@ -360,7 +353,7 @@ public:
             throw std::invalid_argument("Cannot store default (zero) value in COO matrix. \
                                                                 Use erase() to remove it.");
         }
-        
+
         auto index = find_index_unchecked(row, col);
         if (index) {
             values_[*index] = value;
@@ -454,7 +447,7 @@ private:
         cols_.reserve(count);
         values_.reserve(count);
 
-        for (auto it = first; it != last; it++) {
+        for (auto it = first; it != last; ++it) {
             const auto &entry = *it;
 
             rows_.push_back(entry.row);
@@ -473,7 +466,7 @@ private:
 
     std::optional<size_t> find_index_unchecked(size_t row, size_t col) const {
         if (!sorted_) {
-            for (size_t i = 0; i < values_.size(); i++) {
+            for (size_t i = 0; i < values_.size(); ++i) {
                 if (rows_[i] == row && cols_[i] == col) {
                     return i;
                 }
@@ -481,7 +474,7 @@ private:
         } else {
             size_t l = 0;
             size_t r = values_.size();
-            
+
             while (l < r) {
                 size_t m = l + (r - l) / 2;
 
@@ -497,7 +490,7 @@ private:
 
             if (l < values_.size() &&
                 rows_[l] == row &&
-                cols_[l] == col) 
+                cols_[l] == col)
             {
                 return l;
             }
@@ -545,7 +538,7 @@ public:
     }
 
     Iterator& operator++() {
-        index_++;
+        ++index_;
 
         return *this;
     }
@@ -602,7 +595,7 @@ public:
     }
 
     Iterator& operator++() {
-        index_++;
+        ++index_;
 
         return *this;
     }
@@ -627,3 +620,5 @@ private:
 
     mutable ConstMatrixEntry<T> cache_;
 };
+
+} // namespace sparsix

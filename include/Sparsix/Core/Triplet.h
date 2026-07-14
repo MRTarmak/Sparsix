@@ -4,6 +4,8 @@
 
 #include <Sparsix/Concepts/MatrixScalar.h>
 
+namespace sparsix {
+
 #if defined(__cpp_concepts) && __cpp_concepts >= 201907L
 template <MatrixScalar T>
 #else
@@ -18,3 +20,5 @@ struct Triplet {
     /** @brief Stored non-zero value. */
     T value;
 };
+
+} // namespace sparsix

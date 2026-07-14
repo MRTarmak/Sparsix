@@ -8,11 +8,13 @@
 
 #include <Sparsix.h>
 
+using namespace sparsix;
+
 namespace {
     template <typename T>
     void expect_vector_near(const std::vector<T> &actual, const std::vector<T> &expected, double tolerance = 1e-10) {
         ASSERT_EQ(actual.size(), expected.size());
-        for (size_t i = 0; i < actual.size(); i++)
+        for (size_t i = 0; i < actual.size(); ++i)
             EXPECT_NEAR(actual[i], expected[i], tolerance) << "Mismatch at index " << i;
     }
 }
@@ -143,6 +145,12 @@ TEST(BiCGSTABTest, RejectsInvalidVectorSizes) {
 
     EXPECT_THROW(sparsix::bicgstab(matrix, std::vector<double>{1.0}), std::invalid_argument);
     EXPECT_THROW(sparsix::bicgstab(matrix, std::vector<double>{1.0, 2.0}, std::optional<std::vector<double>>(std::vector<double>{0.0})), std::invalid_argument);
+}
+
+TEST(SolverTest, RejectsRectangularMatricesBeforeIterations) {
+    const MatrixCSR<double> rectangular(2, 3, {{0, 0, 1.0}, {1, 1, 1.0}});
+    EXPECT_THROW(sparsix::cg(rectangular, std::vector<double>{1.0, 2.0}), std::invalid_argument);
+    EXPECT_THROW(sparsix::bicgstab(rectangular, std::vector<double>{1.0, 2.0}), std::invalid_argument);
 }
 
 TEST(MatrixIOTest, MatrixMarketRoundTripPreservesComplexValuesAndRequestedFormat) {

@@ -15,6 +15,8 @@
 #include <Sparsix/Detail/PrepareTriplets.h>
 #include <Sparsix/Detail/TripletsFromDense.h>
 
+namespace sparsix {
+
 #if defined(__cpp_concepts) && __cpp_concepts >= 201907L
 template <MatrixScalar T>
 #else
@@ -77,11 +79,11 @@ public:
     explicit MatrixCSC() : row_indices_(), col_ptr_(1, 0), values_(), rows_count_(0), cols_count_(0) {}
 
     /** @brief Constructs an empty CSC matrix with the requested dimensions. */
-    explicit MatrixCSC(size_t rows_count, size_t cols_count) 
+    explicit MatrixCSC(size_t rows_count, size_t cols_count)
         : row_indices_(), col_ptr_(cols_count + 1, 0), values_(), rows_count_(rows_count), cols_count_(cols_count) {}
 
     /** @brief Constructs a CSC matrix from validated coordinate triplets. */
-    explicit MatrixCSC(size_t rows_count, size_t cols_count, const std::vector<Triplet<T>> &triplets) {
+    explicit MatrixCSC(size_t rows_count, size_t cols_count, std::vector<Triplet<T>> triplets) {
         detail::prepare_triplets(rows_count, cols_count, triplets, MajorOrder::ColumnOrder);
 
         initialize(rows_count, cols_count, triplets.begin(), triplets.end());
@@ -106,35 +108,45 @@ public:
         initialize(rows_count, cols_count, triplets.begin(), triplets.end());
     }
 
-    /** @brief Converts a COO matrix to CSC storage. */
-    explicit MatrixCSC(MatrixCOO<T> coo) {
-        coo.sort(MajorOrder::ColumnOrder);
-
+    /** @brief Converts a COO matrix to CSC storage without modifying the source. */
+    explicit MatrixCSC(const MatrixCOO<T> &coo) {
         rows_count_ = coo.rows_count();
         cols_count_ = coo.cols_count();
 
-        row_indices_ = coo.rows();
-        values_ = coo.values();
+        std::vector<size_t> order(coo.non_zero_count());
+        std::iota(order.begin(), order.end(), 0);
+        std::sort(order.begin(), order.end(), [&coo](size_t lhs, size_t rhs) {
+            if (coo.cols()[lhs] != coo.cols()[rhs])
+                return coo.cols()[lhs] < coo.cols()[rhs];
+            return coo.rows()[lhs] < coo.rows()[rhs];
+        });
+
+        row_indices_.reserve(order.size());
+        values_.reserve(order.size());
+        for (size_t index : order) {
+            row_indices_.push_back(coo.rows()[index]);
+            values_.push_back(coo.values()[index]);
+        }
 
         col_ptr_.assign(cols_count_ + 1, 0);
 
         for (auto col : coo.cols())
-            col_ptr_[col + 1]++;
+            ++col_ptr_[col + 1];
 
-        for (size_t i = 1; i <= cols_count_; i++)
+        for (size_t i = 1; i <= cols_count_; ++i)
             col_ptr_[i] += col_ptr_[i - 1];
     }
 
     /** @brief Constructs CSC storage by taking ownership of raw CSC arrays. */
-    explicit MatrixCSC(size_t rows_count, size_t cols_count, 
-                       std::vector<size_t> &&row_indices, 
-                       std::vector<size_t> &&col_ptr, 
+    explicit MatrixCSC(size_t rows_count, size_t cols_count,
+                       std::vector<size_t> &&row_indices,
+                       std::vector<size_t> &&col_ptr,
                        std::vector<T> &&values)
-                : rows_count_(rows_count), 
-                  cols_count_(cols_count), 
-                  row_indices_(std::move(row_indices)), 
-                  col_ptr_(std::move(col_ptr)), 
-                  values_(std::move(values)) {}
+                : rows_count_(rows_count),
+                  cols_count_(cols_count),
+                  row_indices_(std::move(row_indices)),
+                  col_ptr_(std::move(col_ptr)),
+                  values_(std::move(values)) { validate_storage(); }
 
     /** @brief Returns the value at a coordinate, or zero when it is not stored. */
     T at(size_t row, size_t col) const {
@@ -171,21 +183,21 @@ public:
 
                 new_col_ptr.assign(cols_count + 1, 0);
 
-                for (size_t col = 0; col < cols_count; col++) {
+                for (size_t col = 0; col < cols_count; ++col) {
                     size_t begin = col_ptr_[col];
                     size_t end = col_ptr_[col + 1];
 
-                    for (size_t i = begin; i < end; i++) {
+                    for (size_t i = begin; i < end; ++i) {
                         if (row_indices_[i] < rows_count) {
                             new_row_indices.push_back(row_indices_[i]);
                             new_values.push_back(values_[i]);
 
-                            new_col_ptr[col + 1]++;
+                            ++new_col_ptr[col + 1];
                         }
                     }
                 }
 
-                for (size_t i = 1; i <= cols_count; i++)
+                for (size_t i = 1; i <= cols_count; ++i)
                     new_col_ptr[i] += new_col_ptr[i - 1];
 
                 row_indices_ = std::move(new_row_indices);
@@ -224,8 +236,8 @@ public:
         row_indices_.insert(position, row);
         values_.insert(values_.begin() + index, value);
 
-        for (size_t i = col + 1; i <= cols_count_; i++)
-            col_ptr_[i]++;
+        for (size_t i = col + 1; i <= cols_count_; ++i)
+            ++col_ptr_[i];
     }
 
     /** @brief Replaces an existing stored non-zero value. */
@@ -266,7 +278,7 @@ public:
         row_indices_.erase(row_indices_.begin() + *index);
         values_.erase(values_.begin() + *index);
 
-        for (size_t i = col + 1; i <= cols_count_; i++)
+        for (size_t i = col + 1; i <= cols_count_; ++i)
             col_ptr_[i]--;
     }
 
@@ -314,6 +326,21 @@ public:
     }
 
 private:
+    void validate_storage() const {
+        if (col_ptr_.size() != cols_count_ + 1 || col_ptr_.empty() || col_ptr_.front() != 0 ||
+            col_ptr_.back() != values_.size() || row_indices_.size() != values_.size())
+            throw std::invalid_argument("Invalid CSC storage arrays.");
+        for (size_t col = 0; col < cols_count_; ++col) {
+            if (col_ptr_[col] > col_ptr_[col + 1])
+                throw std::invalid_argument("CSC column pointers must be non-decreasing.");
+            for (size_t i = col_ptr_[col]; i < col_ptr_[col + 1]; ++i) {
+                if (row_indices_[i] >= rows_count_ || values_[i] == T{} ||
+                    (i > col_ptr_[col] && row_indices_[i - 1] >= row_indices_[i]))
+                    throw std::invalid_argument("Invalid CSC column entries.");
+            }
+        }
+    }
+
     template <typename InputIt>
     void initialize(size_t rows_count, size_t cols_count, InputIt first, InputIt last) {
         rows_count_ = rows_count;
@@ -326,16 +353,16 @@ private:
 
         col_ptr_.assign(cols_count_ + 1, 0);
 
-        for (auto it = first; it != last; it++) {
+        for (auto it = first; it != last; ++it) {
             const auto &entry = *it;
 
             row_indices_.push_back(entry.row);
             values_.push_back(entry.value);
 
-            col_ptr_[entry.col + 1]++;
+            ++col_ptr_[entry.col + 1];
         }
 
-        for (size_t i = 1; i <= cols_count_; i++)
+        for (size_t i = 1; i <= cols_count_; ++i)
             col_ptr_[i] += col_ptr_[i - 1];
     }
 
@@ -348,7 +375,7 @@ private:
     std::optional<size_t> find_index_unchecked(size_t row, size_t col) const {
         size_t l = col_ptr_[col];
         size_t r = col_ptr_[col + 1];
-        
+
         while (l < r) {
             size_t m = l + (r - l) / 2;
 
@@ -360,7 +387,7 @@ private:
         }
 
         if (l < col_ptr_[col + 1] &&
-            row_indices_[l] == row) 
+            row_indices_[l] == row)
         {
             return l;
         }
@@ -405,9 +432,9 @@ public:
     }
 
     Iterator& operator++() {
-        index_++;
+        ++index_;
         while (col_ + 1 < matrix_->col_ptr_.size() && index_ >= matrix_->col_ptr_[col_ + 1]) {
-            col_++;
+            ++col_;
         }
 
         return *this;
@@ -466,9 +493,9 @@ public:
     }
 
     Iterator& operator++() {
-        index_++;
+        ++index_;
         while (col_ + 1 < matrix_->col_ptr_.size() && index_ >= matrix_->col_ptr_[col_ + 1]) {
-            col_++;
+            ++col_;
         }
 
         return *this;
@@ -495,3 +522,5 @@ private:
 
     mutable ConstMatrixEntry<T> cache_;
 };
+
+} // namespace sparsix

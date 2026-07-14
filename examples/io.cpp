@@ -4,6 +4,8 @@
 
 #include <Sparsix.h>
 
+using namespace sparsix;
+
 int main() {
     using Complex = std::complex<double>;
     const MatrixCOO<Complex> matrix(2, 3, {

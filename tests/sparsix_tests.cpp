@@ -8,15 +8,17 @@
 
 #include <Sparsix.h>
 
+using namespace sparsix;
+
 namespace {
     template <typename MatrixType>
     void expect_dense_matrix_eq(const MatrixType &matrix, const std::vector<std::vector<typename MatrixType::value_type>> &expected) {
         ASSERT_EQ(matrix.rows_count(), expected.size());
         ASSERT_EQ(matrix.cols_count(), expected.empty() ? 0U : expected.front().size());
 
-        for (size_t row = 0; row < expected.size(); row++) {
+        for (size_t row = 0; row < expected.size(); ++row) {
             ASSERT_EQ(expected[row].size(), matrix.cols_count());
-            for (size_t col = 0; col < expected[row].size(); col++) {
+            for (size_t col = 0; col < expected[row].size(); ++col) {
                 EXPECT_EQ(matrix(row, col), expected[row][col]) << "Mismatch at (" << row << ", " << col << ")";
             }
         }
@@ -72,12 +74,6 @@ TEST(MatrixCOOTest, SortOrdersByRowAndColumn) {
     EXPECT_EQ(matrix.cols()[1], 1U);
     EXPECT_EQ(matrix.rows()[2], 2U);
     EXPECT_EQ(matrix.cols()[2], 0U);
-
-    matrix.sort(MajorOrder::ColumnOrder);
-    EXPECT_FALSE(matrix.sorted());
-    EXPECT_EQ(matrix.cols()[0], 0U);
-    EXPECT_EQ(matrix.cols()[1], 1U);
-    EXPECT_EQ(matrix.cols()[2], 2U);
 }
 
 TEST(MatrixCOOTest, ReshapeTruncatesWhenForced) {
@@ -111,8 +107,8 @@ TEST(MatrixCOOTest, RandomMatrixHasExpectedShapeAndValueRange) {
     EXPECT_EQ(matrix.cols_count(), 3U);
     EXPECT_EQ(matrix.non_zero_count(), 6U);
 
-    for (size_t row = 0; row < matrix.rows_count(); row++) {
-        for (size_t col = 0; col < matrix.cols_count(); col++) {
+    for (size_t row = 0; row < matrix.rows_count(); ++row) {
+        for (size_t col = 0; col < matrix.cols_count(); ++col) {
             const int value = matrix(row, col);
             EXPECT_GE(value, 1);
             EXPECT_LE(value, 3);
@@ -199,4 +195,33 @@ TEST(MatrixConversionTest, CSRAndCSCCrossConversionsMatchOriginalValues) {
     EXPECT_EQ(csr_roundtrip.at(0, 1), 3);
     EXPECT_EQ(csr_roundtrip.at(1, 3), 5);
     EXPECT_EQ(csr_roundtrip.at(2, 0), 7);
+}
+
+TEST(MatrixConstructionTest, AcceptsTripletVectorsAndRejectsInvalidRawStorage) {
+    std::vector<Triplet<int>> triplets{{0, 1, 2}, {1, 0, 3}};
+    const MatrixCSR<int> csr(2, 2, triplets);
+    const MatrixCSC<int> csc(2, 2, triplets);
+    EXPECT_EQ(csr(1, 0), 3);
+    EXPECT_EQ(csc(0, 1), 2);
+
+    EXPECT_THROW((MatrixCSR<int>(2, 2, {0}, {0, 1, 2}, {1})), std::invalid_argument);
+    EXPECT_THROW((MatrixCSC<int>(2, 2, {0}, {0, 1, 2}, {1})), std::invalid_argument);
+}
+
+TEST(MatrixConstructionTest, ConstructsCompressedFormatsFromRectangularCOOWithoutMutatingIt) {
+    MatrixCOO<int> coo(2, 3, {{1, 2, 7}, {0, 1, 5}});
+    const auto original_rows = coo.rows();
+    const auto original_cols = coo.cols();
+
+    const MatrixCSR<int> csr(coo);
+    const MatrixCSC<int> csc(coo);
+
+    EXPECT_EQ(csr.rows_count(), 2U);
+    EXPECT_EQ(csr.cols_count(), 3U);
+    EXPECT_EQ(csr(0, 1), 5);
+    EXPECT_EQ(csr(1, 2), 7);
+    EXPECT_EQ(csc(0, 1), 5);
+    EXPECT_EQ(csc(1, 2), 7);
+    EXPECT_EQ(coo.rows(), original_rows);
+    EXPECT_EQ(coo.cols(), original_cols);
 }

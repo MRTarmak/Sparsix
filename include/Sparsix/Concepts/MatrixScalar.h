@@ -5,6 +5,8 @@
 #include <type_traits>
 #include <utility>
 
+namespace sparsix {
+
 /** @brief Type trait identifying std::complex specializations. */
 template <typename T>
 struct is_std_complex : std::false_type {};
@@ -27,3 +29,5 @@ concept MatrixScalar = is_matrix_scalar_v<T>;
 /** @brief Real scalar type associated with T. */
 template <typename T>
 using real_type = decltype(std::abs(std::declval<T>()));
+
+} // namespace sparsix

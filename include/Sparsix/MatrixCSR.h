@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <initializer_list>
 #include <iterator>
+#include <numeric>
 #include <optional>
 #include <stdexcept>
 #include <utility>
@@ -14,6 +15,8 @@
 #include <Sparsix/Core/Triplet.h>
 #include <Sparsix/Detail/PrepareTriplets.h>
 #include <Sparsix/Detail/TripletsFromDense.h>
+
+namespace sparsix {
 
 #if defined(__cpp_concepts) && __cpp_concepts >= 201907L
 template <MatrixScalar T>
@@ -77,11 +80,11 @@ public:
     explicit MatrixCSR() : col_indices_(), row_ptr_(1, 0), values_(), rows_count_(0), cols_count_(0) {}
 
     /** @brief Constructs an empty CSR matrix with the requested dimensions. */
-    explicit MatrixCSR(size_t rows_count, size_t cols_count) 
+    explicit MatrixCSR(size_t rows_count, size_t cols_count)
         : col_indices_(), row_ptr_(rows_count + 1, 0), values_(), rows_count_(rows_count), cols_count_(cols_count) {}
 
     /** @brief Constructs a CSR matrix from validated coordinate triplets. */
-    explicit MatrixCSR(size_t rows_count, size_t cols_count, const std::vector<Triplet<T>> &triplets) {
+    explicit MatrixCSR(size_t rows_count, size_t cols_count, std::vector<Triplet<T>> triplets) {
         detail::prepare_triplets(rows_count, cols_count, triplets);
 
         initialize(rows_count, cols_count, triplets.begin(), triplets.end());
@@ -105,48 +108,63 @@ public:
         initialize(rows_count, cols_count, triplets.begin(), triplets.end());
     }
 
-    /** @brief Converts a COO matrix to CSR storage. */
-    explicit MatrixCSR(MatrixCOO<T> coo) {
-        if (!coo.sorted()) {
-            coo.sort();
-        }
-
+    /** @brief Converts a COO matrix to CSR storage without modifying the source. */
+    explicit MatrixCSR(const MatrixCOO<T> &coo) {
         rows_count_ = coo.rows_count();
         cols_count_ = coo.cols_count();
 
-        col_indices_ = coo.cols();
-        values_ = coo.values();
+        if (!coo.sorted()) {
+            std::vector<size_t> order(coo.non_zero_count());
+            std::iota(order.begin(), order.end(), 0);
+            std::sort(order.begin(), order.end(), [&coo](size_t a, size_t b) {
+            if (coo.rows()[a] != coo.rows()[b])
+                return coo.rows()[a] < coo.rows()[b];
+            return coo.cols()[a] < coo.cols()[b];
+            });
+
+            col_indices_.reserve(order.size());
+            values_.reserve(order.size());
+            for (size_t index : order) {
+                col_indices_.push_back(coo.cols()[index]);
+                values_.push_back(coo.values()[index]);
+            }
+        } else {
+            col_indices_ = coo.cols();
+            values_ = coo.values();
+        }
 
         row_ptr_.assign(rows_count_ + 1, 0);
 
         for (auto row : coo.rows())
-            row_ptr_[row + 1]++;
+            ++row_ptr_[row + 1];
 
-        for (size_t i = 1; i <= rows_count_; i++)
+        for (size_t i = 1; i <= rows_count_; ++i)
             row_ptr_[i] += row_ptr_[i - 1];
     }
 
+public:
+
     /** @brief Constructs CSR storage by taking ownership of raw CSR arrays. */
-    explicit MatrixCSR(size_t rows_count, size_t cols_count, 
-                       std::vector<size_t> &&col_indices, 
-                       std::vector<size_t> &&row_ptr, 
+    explicit MatrixCSR(size_t rows_count, size_t cols_count,
+                       std::vector<size_t> &&col_indices,
+                       std::vector<size_t> &&row_ptr,
                        std::vector<T> &&values)
-                : rows_count_(rows_count), 
-                  cols_count_(cols_count), 
-                  col_indices_(std::move(col_indices)), 
-                  row_ptr_(std::move(row_ptr)), 
-                  values_(std::move(values)) {}
+                : rows_count_(rows_count),
+                  cols_count_(cols_count),
+                  col_indices_(std::move(col_indices)),
+                  row_ptr_(std::move(row_ptr)),
+                  values_(std::move(values)) { validate_storage(); }
 
     /** @brief Constructs CSR storage from index arrays and an owned value array. */
     explicit MatrixCSR(size_t rows_count, size_t cols_count,
                        const std::vector<size_t> &col_indices,
                        const std::vector<size_t> &row_ptr,
                        std::vector<T> &&values)
-                : rows_count_(rows_count), 
-                  cols_count_(cols_count), 
-                  col_indices_(col_indices), 
-                  row_ptr_(row_ptr), 
-                  values_(std::move(values)) {}
+                : rows_count_(rows_count),
+                  cols_count_(cols_count),
+                  col_indices_(col_indices),
+                  row_ptr_(row_ptr),
+                  values_(std::move(values)) { validate_storage(); }
 
     /** @brief Returns the value at a coordinate, or zero when it is not stored. */
     T at(size_t row, size_t col) const {
@@ -182,22 +200,22 @@ public:
                 new_values.reserve(values_.size());
 
                 new_row_ptr.assign(rows_count + 1, 0);
-                
-                for (size_t i = 0; i < rows_count; i++) {
+
+                for (size_t i = 0; i < rows_count; ++i) {
                     size_t begin = row_ptr_[i];
                     size_t end = row_ptr_[i + 1];
 
-                    for (size_t j = begin; j < end; j++) {
+                    for (size_t j = begin; j < end; ++j) {
                         if (col_indices_[j] < cols_count) {
                             new_col_indices.push_back(col_indices_[j]);
                             new_values.push_back(values_[j]);
 
-                            new_row_ptr[i + 1]++;
+                            ++new_row_ptr[i + 1];
                         }
                     }
                 }
 
-                for (size_t i = 1; i <= rows_count; i++)
+                for (size_t i = 1; i <= rows_count; ++i)
                     new_row_ptr[i] += new_row_ptr[i - 1];
 
                 col_indices_ = std::move(new_col_indices);
@@ -236,8 +254,8 @@ public:
         col_indices_.insert(position, col);
         values_.insert(values_.begin() + index, value);
 
-        for (size_t i = row + 1; i <= rows_count_; i++)
-            row_ptr_[i]++;
+        for (size_t i = row + 1; i <= rows_count_; ++i)
+            ++row_ptr_[i];
     }
 
     /** @brief Replaces an existing stored non-zero value. */
@@ -278,7 +296,7 @@ public:
         col_indices_.erase(col_indices_.begin() + *index);
         values_.erase(values_.begin() + *index);
 
-        for (size_t i = row + 1; i <= rows_count_; i++)
+        for (size_t i = row + 1; i <= rows_count_; ++i)
             row_ptr_[i]--;
     }
 
@@ -326,6 +344,21 @@ public:
     }
 
 private:
+    void validate_storage() const {
+        if (row_ptr_.size() != rows_count_ + 1 || row_ptr_.empty() || row_ptr_.front() != 0 ||
+            row_ptr_.back() != values_.size() || col_indices_.size() != values_.size())
+            throw std::invalid_argument("Invalid CSR storage arrays.");
+        for (size_t row = 0; row < rows_count_; ++row) {
+            if (row_ptr_[row] > row_ptr_[row + 1])
+                throw std::invalid_argument("CSR row pointers must be non-decreasing.");
+            for (size_t i = row_ptr_[row]; i < row_ptr_[row + 1]; ++i) {
+                if (col_indices_[i] >= cols_count_ || values_[i] == T{} ||
+                    (i > row_ptr_[row] && col_indices_[i - 1] >= col_indices_[i]))
+                    throw std::invalid_argument("Invalid CSR row entries.");
+            }
+        }
+    }
+
     template <typename InputIt>
     void initialize(size_t rows_count, size_t cols_count, InputIt first, InputIt last) {
         rows_count_ = rows_count;
@@ -338,16 +371,16 @@ private:
 
         row_ptr_.assign(rows_count_ + 1, 0);
 
-        for (auto it = first; it != last; it++) {
+        for (auto it = first; it != last; ++it) {
             const auto &entry = *it;
 
             col_indices_.push_back(entry.col);
             values_.push_back(entry.value);
 
-            row_ptr_[entry.row + 1]++;
+            ++row_ptr_[entry.row + 1];
         }
 
-        for (size_t i = 1; i <= rows_count_; i++)
+        for (size_t i = 1; i <= rows_count_; ++i)
             row_ptr_[i] += row_ptr_[i - 1];
     }
 
@@ -360,7 +393,7 @@ private:
     std::optional<size_t> find_index_unchecked(size_t row, size_t col) const {
         size_t l = row_ptr_[row];
         size_t r = row_ptr_[row + 1];
-        
+
         while (l < r) {
             size_t m = l + (r - l) / 2;
 
@@ -372,7 +405,7 @@ private:
         }
 
         if (l < row_ptr_[row + 1] &&
-            col_indices_[l] == col) 
+            col_indices_[l] == col)
         {
             return l;
         }
@@ -417,9 +450,9 @@ public:
     }
 
     Iterator& operator++() {
-        index_++;
+        ++index_;
         while (row_ + 1 < matrix_->row_ptr_.size() && index_ >= matrix_->row_ptr[row_ + 1]) {
-            row_++;
+            ++row_;
         }
 
         return *this;
@@ -478,9 +511,9 @@ public:
     }
 
     Iterator& operator++() {
-        index_++;
+        ++index_;
         while (row_ + 1 < matrix_->row_ptr_.size() && index_ >= matrix_->row_ptr[row_ + 1]) {
-            row_++;
+            ++row_;
         }
 
         return *this;
@@ -507,3 +540,5 @@ private:
 
     mutable ConstMatrixEntry<T> cache_;
 };
+
+} // namespace sparsix

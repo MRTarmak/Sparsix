@@ -4,6 +4,8 @@
 
 #include <Sparsix.h>
 
+using namespace sparsix;
+
 namespace {
     void print_result(const char *name, const sparsix::SolverResult<double> &result) {
         std::cout << name << ": converged=" << std::boolalpha << result.converged
