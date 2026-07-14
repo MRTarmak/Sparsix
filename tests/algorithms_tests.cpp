@@ -103,3 +103,16 @@ TEST(MatrixMultiplicationTest, RejectsDimensionMismatch) {
     EXPECT_THROW((lhs * rhs), std::invalid_argument);
     EXPECT_THROW((lhs * vector), std::invalid_argument);
 }
+
+TEST(MatrixMultiplicationTest, GustavsonEliminatesCancelledEntriesAndKeepsColumnsSorted) {
+    const MatrixCSR<int> lhs(2, 3, {{0, 0, 1}, {0, 1, 1}, {1, 2, 2}});
+    const MatrixCSC<int> rhs(3, 4, {
+        {0, 1, 4}, {1, 1, -4}, {1, 3, 5}, {2, 0, 3}, {2, 2, -3}
+    });
+
+    const auto result = lhs * rhs;
+
+    expect_dense_matrix_eq(result, std::vector<std::vector<int>>{{0, 0, 0, 5}, {6, 0, -6, 0}});
+    EXPECT_EQ(result.non_zero_count(), 3U);
+    EXPECT_EQ(result.col_indices(), std::vector<size_t>({3, 0, 2}));
+}

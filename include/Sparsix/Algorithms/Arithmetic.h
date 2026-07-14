@@ -29,6 +29,7 @@ MatrixCSR<T> add(const MatrixCSR<T> &A, const MatrixCSR<T> &B) {
         return std::optional{b_value};
     });
 }
+
 /** @brief Adds two supported sparse matrix formats. */
 template <SparseMatrix MatrixA, SparseMatrix MatrixB>
 auto add(const MatrixA &A, const MatrixB &B) {
@@ -39,6 +40,7 @@ auto add(const MatrixA &A, const MatrixB &B) {
     }
     return add(toCSR(A), toCSR(B));
 }
+
 /** @brief Subtracts one CSR matrix from another. */
 template <typename T>
 MatrixCSR<T> subtract(const MatrixCSR<T> &A, const MatrixCSR<T> &B) {
@@ -56,6 +58,7 @@ MatrixCSR<T> subtract(const MatrixCSR<T> &A, const MatrixCSR<T> &B) {
         return std::optional{-b_value};
     });
 }
+
 /** @brief Subtracts two supported sparse matrix formats. */
 template <SparseMatrix MatrixA, SparseMatrix MatrixB>
 auto subtract(const MatrixA &A, const MatrixB &B) {
@@ -66,6 +69,7 @@ auto subtract(const MatrixA &A, const MatrixB &B) {
     }
     return subtract(toCSR(A), toCSR(B));
 }
+
 /** @brief Multiplies every stored CSR value by a scalar. */
 template <typename T>
 MatrixCSR<T> multiply(const MatrixCSR<T> &A, const T &x) {
@@ -75,16 +79,19 @@ MatrixCSR<T> multiply(const MatrixCSR<T> &A, const T &x) {
         values.push_back(v * x);
     return MatrixCSR(A.rows_count(), A.cols_count(), A.col_indices(), A.row_ptr(), std::move(values));
 }
+
 /** @brief Multiplies a supported sparse matrix by a scalar. */
 template <SparseMatrix Matrix>
 auto multiply(const Matrix &A, const typename Matrix::value_type &x) {
     return multiply(toCSR(A), x);
 }
+
 /** @brief Multiplies a scalar by a supported sparse matrix. */
 template <SparseMatrix Matrix>
 auto multiply(const typename Matrix::value_type &x, const Matrix &A) {
     return multiply(toCSR(A), x);
 }
+
 /** @brief Divides every stored CSR value by a non-zero scalar. */
 template <typename T>
 MatrixCSR<T> divide(const MatrixCSR<T> &A, const T &x) {
@@ -96,6 +103,7 @@ MatrixCSR<T> divide(const MatrixCSR<T> &A, const T &x) {
         values.push_back(v / x);
     return MatrixCSR(A.rows_count(), A.cols_count(), A.col_indices(), A.row_ptr(), std::move(values));
 }
+
 /** @brief Divides a supported sparse matrix by a non-zero scalar. */
 template <SparseMatrix Matrix>
 auto divide(const Matrix &A, const typename Matrix::value_type &x) {
@@ -103,6 +111,7 @@ auto divide(const Matrix &A, const typename Matrix::value_type &x) {
         throw std::runtime_error("Division by zero.");
     return divide(toCSR(A), x);
 }
+
 /** @brief Performs element-wise multiplication of two CSR matrices. */
 template <typename T>
 MatrixCSR<T> cwise_multiply(const MatrixCSR<T> &A, const MatrixCSR<T> &B) {
@@ -117,6 +126,7 @@ MatrixCSR<T> cwise_multiply(const MatrixCSR<T> &A, const MatrixCSR<T> &B) {
         return std::nullopt;
     });
 }
+
 /** @brief Performs element-wise multiplication of supported sparse matrices. */
 template <SparseMatrix MatrixA, SparseMatrix MatrixB>
 auto cwise_multiply(const MatrixA &A, const MatrixB &B) {
@@ -127,6 +137,7 @@ auto cwise_multiply(const MatrixA &A, const MatrixB &B) {
     }
     return cwise_multiply(toCSR(A), toCSR(B));
 }
+
 /** @brief Performs element-wise division of two CSR matrices. */
 template <typename T>
 MatrixCSR<T> cwise_divide(const MatrixCSR<T> &A, const MatrixCSR<T> &B) {
@@ -143,6 +154,7 @@ MatrixCSR<T> cwise_divide(const MatrixCSR<T> &A, const MatrixCSR<T> &B) {
         return std::nullopt;
     });
 }
+
 /** @brief Performs element-wise division of supported sparse matrices. */
 template <SparseMatrix MatrixA, SparseMatrix MatrixB>
 auto cwise_divide(const MatrixA &A, const MatrixB &B) {
@@ -159,21 +171,25 @@ template <SparseMatrix MatrixA, SparseMatrix MatrixB>
 auto operator+(const MatrixA &A, const MatrixB &B) {
     return sparsix::add(A, B);
 }
+
 /** @brief Operator form of sparse matrix subtraction. */
 template <SparseMatrix MatrixA, SparseMatrix MatrixB>
 auto operator-(const MatrixA &A, const MatrixB &B) {
     return sparsix::subtract(A, B);
 }
+
 /** @brief Operator form of matrix-scalar multiplication. */
 template <SparseMatrix Matrix>
 auto operator*(const Matrix &A, const typename Matrix::value_type &x) {
     return sparsix::multiply(A, x);
 }
+
 /** @brief Operator form of scalar-matrix multiplication. */
 template <SparseMatrix Matrix>
 auto operator*(const typename Matrix::value_type &x, const Matrix &A) {
     return sparsix::multiply(x, A);
 }
+
 /** @brief Operator form of matrix-scalar division. */
 template <SparseMatrix Matrix>
 auto operator/(const Matrix &A, const typename Matrix::value_type &x) {

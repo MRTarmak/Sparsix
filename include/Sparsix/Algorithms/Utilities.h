@@ -16,24 +16,30 @@ template <typename T>
 bool is_symmetric(const MatrixCSR<T> &A) {
     size_t rows_count = A.rows_count();
     size_t cols_count = A.cols_count();
+
     if (rows_count != cols_count)
         return false;
+
     const auto &col_indices = A.col_indices();
     const auto &row_ptr = A.row_ptr();
     const auto &values = A.values();
+
     for (size_t row = 0; row < rows_count; ++row) {
         size_t row_end = row_ptr[row + 1];
         for (size_t i = row_ptr[row]; i < row_end; ++i)
             if (values[i] != A(col_indices[i], row))
                 return false;
     }
+
     return true;
 }
+
 /** @brief Checks symmetry after converting a supported matrix format to CSR. */
 template <SparseMatrix Matrix>
 bool is_symmetric(const Matrix &A) {
     return is_symmetric(toCSR(A));
 }
+
 /** @brief Returns the sum of diagonal elements of a sparse matrix. */
 template <SparseMatrix Matrix>
 typename Matrix::value_type trace(const Matrix &A) {
@@ -45,6 +51,7 @@ typename Matrix::value_type trace(const Matrix &A) {
     }
     return sum;
 }
+
 /** @brief Returns the Frobenius norm of any supported matrix format. */
 template <SparseMatrix Matrix>
 real_type<typename Matrix::value_type> frobenius_norm(const Matrix &A) {
@@ -56,6 +63,7 @@ real_type<typename Matrix::value_type> frobenius_norm(const Matrix &A) {
     }
     return std::sqrt(sum);
 }
+
 /** @brief Returns the maximum absolute column sum of a CSC matrix. */
 template <typename T>
 real_type<T> one_norm(const MatrixCSC<T> &A) {
@@ -73,11 +81,13 @@ real_type<T> one_norm(const MatrixCSC<T> &A) {
     }
     return max_sum;
 }
+
 /** @brief Returns the one norm of any supported matrix format. */
 template <SparseMatrix Matrix>
 real_type<typename Matrix::value_type> one_norm(const Matrix &A) {
     return one_norm(toCSC(A));
 }
+
 /** @brief Returns the maximum absolute row sum of a CSR matrix. */
 template <typename T>
 real_type<T> infinity_norm(const MatrixCSR<T> &A) {
@@ -95,6 +105,7 @@ real_type<T> infinity_norm(const MatrixCSR<T> &A) {
     }
     return max_sum;
 }
+
 /** @brief Returns the infinity norm of any supported matrix format. */
 template <SparseMatrix Matrix>
 real_type<typename Matrix::value_type> infinity_norm(const Matrix &A) {

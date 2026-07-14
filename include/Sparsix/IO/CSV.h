@@ -27,6 +27,7 @@ void write_triplets_csv(const Matrix &matrix, const std::filesystem::path &path)
     std::ofstream output(path);
     if (!output)
         throw std::runtime_error("Unable to open CSV file for writing: " + path.string());
+        
     const auto &coo = toCOO(matrix);
     output << coo.rows_count() << ',' << coo.cols_count() << ',' << coo.non_zero_count() << '\n';
     output << std::setprecision(std::numeric_limits<long double>::max_digits10);
@@ -50,13 +51,16 @@ template <SparseMatrix Matrix>
 Matrix read_triplets_csv(const std::filesystem::path &path) {
     using T = typename Matrix::value_type;
     std::ifstream input(path);
+
     if (!input)
         throw std::runtime_error("Unable to open CSV file for reading: " + path.string());
+
     const auto header = detail::io::next_data_line(input, '#');
     std::istringstream dimensions(detail::io::comma_to_space(header));
     size_t rows{}, cols{}, nnz{};
     if (!(dimensions >> rows >> cols >> nnz))
         throw std::invalid_argument("Invalid CSV dimensions line.");
+
     std::vector<Triplet<T>> triplets;
     triplets.reserve(nnz);
     for (size_t i = 0; i < nnz; ++i) {
@@ -65,18 +69,23 @@ Matrix read_triplets_csv(const std::filesystem::path &path) {
         size_t row{}, col{};
         if (!(entry >> row >> col) || row >= rows || col >= cols)
             throw std::invalid_argument("Invalid CSV coordinate.");
+
         const T value = detail::io::read_value<T>(entry, is_std_complex_v<T>);
         if (!entry)
             throw std::invalid_argument("Invalid CSV value.");
+
         triplets.push_back({row, col, value});
     }
+
     return detail::io::build_matrix<Matrix>(rows, cols, std::move(triplets));
 }
+
 /** @brief Reads a CSV-like triplet file into COO storage. */
 template <typename T>
 MatrixCOO<T> load_triplets_csv(const std::filesystem::path &path) {
     return read_triplets_csv<MatrixCOO<T>>(path);
 }
+
 /** @brief Writes a matrix as CSV-like triplets; alias for write_triplets_csv(). */
 template <SparseMatrix Matrix>
 void save_triplets_csv(const Matrix &matrix, const std::filesystem::path &path) {

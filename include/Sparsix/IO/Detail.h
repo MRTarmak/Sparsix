@@ -24,11 +24,13 @@ inline std::string lowercase(std::string value) {
     std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
     return value;
 }
+
 /** @brief Replaces CSV separators with spaces for stream-based parsing. */
 inline std::string comma_to_space(std::string value) {
     std::replace(value.begin(), value.end(), ',', ' ');
     return value;
 }
+
 /** @brief Reads one scalar or complex value from a formatted input stream. */
 template <typename T>
 T read_value(std::istringstream &input, bool complex_value) {
@@ -48,6 +50,7 @@ T read_value(std::istringstream &input, bool complex_value) {
         return value;
     }
 }
+
 /** @brief Writes one scalar or complex value in a portable text representation. */
 template <typename T>
 void write_value(std::ostream &output, const T &value) {
@@ -56,6 +59,7 @@ void write_value(std::ostream &output, const T &value) {
     else
         output << value;
 }
+
 /** @brief Returns the next non-empty, non-comment line or throws at end of input. */
 inline std::string next_data_line(std::istream &input, char comment_marker) {
     std::string line;
@@ -66,6 +70,7 @@ inline std::string next_data_line(std::istream &input, char comment_marker) {
     }
     throw std::runtime_error("Unexpected end of matrix file.");
 }
+
 /** @brief Constructs the requested sparse storage format from validated triplets. */
 template <SparseMatrix Matrix>
 Matrix build_matrix(size_t rows, size_t cols, std::vector<Triplet<typename Matrix::value_type>> triplets) {
